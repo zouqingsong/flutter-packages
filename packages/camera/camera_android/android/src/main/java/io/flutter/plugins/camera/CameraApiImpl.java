@@ -344,6 +344,63 @@ final class CameraApiImpl implements Messages.CameraApi {
   }
 
   @Override
+  public void setManualFocusDistance(@NonNull Double distance, @NonNull Messages.VoidResult result) {
+    try {
+      camera.setManualFocusDistance(result, distance);
+    } catch (Exception e) {
+      handleException(e, result);
+    }
+  }
+
+  @Override
+  public @NonNull Double getMinFocusDistance() {
+    return camera.getMinFocusDistance();
+  }
+
+  @Override
+  public @NonNull Double getMaxFocusDistance() {
+    return camera.getMaxFocusDistance();
+  }
+
+  @Override
+  public void setManualExposureTime(@NonNull Integer exposureTime, @NonNull Messages.VoidResult result) {
+    try {
+      camera.setManualExposureTime(result, exposureTime);
+    } catch (Exception e) {
+      handleException(e, result);
+    }
+  }
+
+  @Override
+  public @NonNull Integer getMinExposureTime() {
+    return camera.getMinExposureTime();
+  }
+
+  @Override
+  public @NonNull Integer getMaxExposureTime() {
+    return camera.getMaxExposureTime();
+  }
+
+  @Override
+  public void setManualIso(@NonNull Integer iso, @NonNull Messages.VoidResult result) {
+    try {
+      camera.setManualIso(result, iso);
+    } catch (Exception e) {
+      handleException(e, result);
+    }
+  }
+
+  @Override
+  public @NonNull Integer getMinIso() {
+    return camera.getMinIso();
+  }
+
+  @Override
+  public @NonNull Integer getMaxIso() {
+    return camera.getMaxIso();
+  }
+
+  @Override
   public void dispose() {
     if (camera != null) {
       camera.dispose();

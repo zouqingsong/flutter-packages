@@ -1083,6 +1083,73 @@ class Camera
     return cameraFeatures.getZoomLevel().getMinimumZoomLevel();
   }
 
+  /**
+   * Sets manual focus distance from dart.
+   *
+   * @param result Flutter result.
+   * @param distance new focus distance (0.0 to 1.0).
+   */
+  public void setManualFocusDistance(@NonNull final Messages.VoidResult result, double distance) {
+    // Implementation will be added when manual focus feature is integrated
+    result.error(new Messages.FlutterError("notImplemented", "Manual focus distance not yet implemented.", null));
+  }
+
+  /** Return the min focus distance supported by the camera to dart. */
+  public double getMinFocusDistance() {
+    return 0.0; // Closest focus
+  }
+
+  /** Return the max focus distance supported by the camera to dart. */
+  public double getMaxFocusDistance() {
+    return 1.0; // Infinity focus
+  }
+
+  /**
+   * Sets manual exposure time from dart.
+   *
+   * @param result Flutter result.
+   * @param exposureTime new exposure time in microseconds.
+   */
+  public void setManualExposureTime(@NonNull final Messages.VoidResult result, int exposureTime) {
+    // Implementation will be added when manual exposure feature is integrated
+    result.error(new Messages.FlutterError("notImplemented", "Manual exposure time not yet implemented.", null));
+  }
+
+  /** Return the min exposure time supported by the camera to dart. */
+  public int getMinExposureTime() {
+    // Implementation will return actual minimum when feature is complete
+    return 1000; // 1ms default
+  }
+
+  /** Return the max exposure time supported by the camera to dart. */
+  public int getMaxExposureTime() {
+    // Implementation will return actual maximum when feature is complete
+    return 1000000; // 1s default
+  }
+
+  /**
+   * Sets manual ISO from dart.
+   *
+   * @param result Flutter result.
+   * @param iso new ISO value.
+   */
+  public void setManualIso(@NonNull final Messages.VoidResult result, int iso) {
+    // Implementation will be added when manual ISO feature is integrated
+    result.error(new Messages.FlutterError("notImplemented", "Manual ISO not yet implemented.", null));
+  }
+
+  /** Return the min ISO supported by the camera to dart. */
+  public int getMinIso() {
+    // Implementation will return actual minimum when feature is complete
+    return 100; // Default minimum
+  }
+
+  /** Return the max ISO supported by the camera to dart. */
+  public int getMaxIso() {
+    // Implementation will return actual maximum when feature is complete
+    return 3200; // Default maximum
+  }
+
   /** Shortcut to get current recording profile. Legacy method provides support for SDK < 31. */
   CamcorderProfile getRecordingProfileLegacy() {
     return cameraFeatures.getResolution().getRecordingProfileLegacy();

@@ -152,6 +152,18 @@ public class CameraPropertiesImpl implements CameraProperties {
     return cameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
   }
 
+  @Nullable
+  @Override
+  public Range<Long> getSensorInfoExposureTimeRange() {
+    return cameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+  }
+
+  @Nullable
+  @Override
+  public Range<Integer> getSensorInfoSensitivityRange() {
+    return cameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+  }
+
   @Override
   public int getHardwareLevel() {
     return cameraCharacteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import AVFoundation
+import CoreMedia
 import CoreMotion
 import Flutter
 
@@ -859,6 +860,10 @@ final class DefaultCamera: NSObject, Camera {
       } else {
         captureDevice.exposureMode = .autoExpose
       }
+    case .manual:
+      if captureDevice.isExposureModeSupported(.custom) {
+        captureDevice.setExposureMode(.custom)
+      }
     @unknown default:
       assertionFailure("Unknown exposure mode")
     }
@@ -947,6 +952,10 @@ final class DefaultCamera: NSObject, Camera {
         captureDevice.focusMode = .continuousAutoFocus
       } else if captureDevice.isFocusModeSupported(.autoFocus) {
         captureDevice.focusMode = .autoFocus
+      }
+    case .manual:
+      if captureDevice.isFocusModeSupported(.locked) {
+        captureDevice.setFocusMode(.locked)
       }
     @unknown default:
       assertionFailure("Unknown focus mode")
@@ -1101,6 +1110,162 @@ final class DefaultCamera: NSObject, Camera {
 
     flashMode = mode
     completion(.success(()))
+  }
+
+  func setManualFocusDistance(_ distance: Double) {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      print("Cannot access AVCaptureDevice for manual focus")
+      return
+    }
+    
+    guard device.isFocusModeSupported(.locked) else {
+      print("Manual focus not supported on this device")
+      return
+    }
+    
+    // Ensure focus mode is set to manual first
+    if focusMode != .manual {
+      focusMode = .manual
+      applyFocusMode()
+    }
+    
+    do {
+      try device.lockForConfiguration()
+      // Set the lens position where 0.0 is closest, 1.0 is farthest
+      device.setFocusModeLocked(lensPosition: Float(distance), completionHandler: nil)
+      device.unlockForConfiguration()
+    } catch {
+      print("Failed to set manual focus distance: \(error)")
+    }
+  }
+
+  func setManualExposureTime(_ exposureTime: Int) {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      print("Cannot access AVCaptureDevice for manual exposure")
+      return
+    }
+    
+    guard device.isExposureModeSupported(.custom) else {
+      print("Manual exposure not supported on this device")
+      return
+    }
+    
+    // Ensure exposure mode is set to manual first
+    if exposureMode != .manual {
+      exposureMode = .manual
+      applyExposureMode()
+    }
+    
+    do {
+      try device.lockForConfiguration()
+      // Convert microseconds to CMTime
+      let exposureDuration = CMTimeMake(value: Int64(exposureTime), timescale: 1_000_000)
+      let activeFormat = device.activeFormat
+      let minExposure = activeFormat.minExposureDuration
+      let maxExposure = activeFormat.maxExposureDuration
+      
+      // Clamp the exposure time to supported range
+      let clampedExposure: CMTime
+      if CMTimeCompare(exposureDuration, minExposure) < 0 {
+        clampedExposure = minExposure
+      } else if CMTimeCompare(exposureDuration, maxExposure) > 0 {
+        clampedExposure = maxExposure
+      } else {
+        clampedExposure = exposureDuration
+      }
+      
+      // Get current ISO or use a reasonable default
+      let currentISO = device.iso
+      device.setExposureModeCustom(duration: clampedExposure, iso: currentISO, completionHandler: nil)
+      device.unlockForConfiguration()
+    } catch {
+      print("Failed to set manual exposure time: \(error)")
+    }
+  }
+
+  func setManualIso(_ iso: Int) {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      print("Cannot access AVCaptureDevice for manual ISO")
+      return
+    }
+    
+    guard device.isExposureModeSupported(.custom) else {
+      print("Manual exposure not supported on this device")
+      return
+    }
+    
+    // Ensure exposure mode is set to manual first
+    if exposureMode != .manual {
+      exposureMode = .manual
+      applyExposureMode()
+    }
+    
+    do {
+      try device.lockForConfiguration()
+      let activeFormat = device.activeFormat
+      let minISO = activeFormat.minISO
+      let maxISO = activeFormat.maxISO
+      
+      // Clamp the ISO to supported range
+      let clampedISO = Float(max(Int(minISO), min(iso, Int(maxISO))))
+      
+      // Get current exposure duration or use a reasonable default
+      let currentDuration = device.exposureDuration
+      device.setExposureModeCustom(duration: currentDuration, iso: clampedISO, completionHandler: nil)
+      device.unlockForConfiguration()
+    } catch {
+      print("Failed to set manual ISO: \(error)")
+    }
+  }
+
+  func getMinFocusDistance() -> Double {
+    return 0.0 // Focus distance ranges from 0.0 (closest) to 1.0 (farthest)
+  }
+
+  func getMaxFocusDistance() -> Double {
+    return 1.0 // Focus distance ranges from 0.0 (closest) to 1.0 (farthest)
+  }
+
+  func getMinExposureTime() -> Int {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      return 1000 // Default 1ms in microseconds
+    }
+    
+    let activeFormat = device.activeFormat
+    let minExposure = activeFormat.minExposureDuration
+    // Convert CMTime to microseconds
+    let microseconds = Int((Double(minExposure.value) / Double(minExposure.timescale)) * 1_000_000)
+    return microseconds
+  }
+
+  func getMaxExposureTime() -> Int {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      return 1000000 // Default 1s in microseconds
+    }
+    
+    let activeFormat = device.activeFormat
+    let maxExposure = activeFormat.maxExposureDuration
+    // Convert CMTime to microseconds
+    let microseconds = Int((Double(maxExposure.value) / Double(maxExposure.timescale)) * 1_000_000)
+    return microseconds
+  }
+
+  func getMinIso() -> Int {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      return 100 // Default minimum ISO
+    }
+    
+    let activeFormat = device.activeFormat
+    return Int(activeFormat.minISO)
+  }
+
+  func getMaxIso() -> Int {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      return 3200 // Default maximum ISO
+    }
+    
+    let activeFormat = device.activeFormat
+    return Int(activeFormat.maxISO)
   }
 
   func pausePreview() {

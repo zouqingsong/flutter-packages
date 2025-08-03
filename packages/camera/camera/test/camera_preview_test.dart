@@ -107,6 +107,33 @@ class FakeController extends ValueNotifier<CameraValue>
   Future<void> setZoomLevel(double zoom) async {}
 
   @override
+  Future<void> setManualFocusDistance(double distance) async {}
+
+  @override
+  Future<void> setManualExposureTime(int exposureTime) async {}
+
+  @override
+  Future<void> setManualIso(int iso) async {}
+
+  @override
+  Future<double> getMinFocusDistance() async => 0.0;
+
+  @override
+  Future<double> getMaxFocusDistance() async => 1.0;
+
+  @override
+  Future<int> getMinExposureTime() async => 1000;
+
+  @override
+  Future<int> getMaxExposureTime() async => 1000000;
+
+  @override
+  Future<int> getMinIso() async => 100;
+
+  @override
+  Future<int> getMaxIso() async => 3200;
+
+  @override
   Future<void> startImageStream(onLatestImageAvailable onAvailable) async {}
 
   @override

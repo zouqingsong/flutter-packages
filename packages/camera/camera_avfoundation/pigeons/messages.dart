@@ -48,13 +48,13 @@ enum PlatformDeviceOrientation {
 }
 
 // Pigeon version of ExposureMode.
-enum PlatformExposureMode { auto, locked }
+enum PlatformExposureMode { auto, locked, manual }
 
 // Pigeon version of FlashMode.
 enum PlatformFlashMode { off, auto, always, torch }
 
 // Pigeon version of FocusMode.
-enum PlatformFocusMode { auto, locked }
+enum PlatformFocusMode { auto, locked, manual }
 
 /// Pigeon version of ImageFileFormat.
 enum PlatformImageFileFormat { jpeg, heif }
@@ -305,6 +305,54 @@ abstract class CameraApi {
   @async
   @ObjCSelector('setFocusPoint:')
   void setFocusPoint(PlatformPoint? point);
+
+  /// Sets the manual focus distance.
+  ///
+  /// The distance should be between 0.0 and 1.0, where 0.0 represents
+  /// the nearest focus distance and 1.0 represents the farthest (infinity).
+  @async
+  @ObjCSelector('setManualFocusDistance:')
+  void setManualFocusDistance(double distance);
+
+  /// Returns the minimum supported manual focus distance.
+  @async
+  @ObjCSelector('getMinFocusDistance')
+  double getMinFocusDistance();
+
+  /// Returns the maximum supported manual focus distance.
+  @async
+  @ObjCSelector('getMaxFocusDistance')
+  double getMaxFocusDistance();
+
+  /// Sets the manual exposure time (shutter speed) in microseconds.
+  @async
+  @ObjCSelector('setManualExposureTime:')
+  void setManualExposureTime(int exposureTime);
+
+  /// Returns the minimum supported exposure time in microseconds.
+  @async
+  @ObjCSelector('getMinExposureTime')
+  int getMinExposureTime();
+
+  /// Returns the maximum supported exposure time in microseconds.
+  @async
+  @ObjCSelector('getMaxExposureTime')
+  int getMaxExposureTime();
+
+  /// Sets the manual ISO sensitivity.
+  @async
+  @ObjCSelector('setManualIso:')
+  void setManualIso(int iso);
+
+  /// Returns the minimum supported ISO sensitivity.
+  @async
+  @ObjCSelector('getMinIso')
+  int getMinIso();
+
+  /// Returns the maximum supported ISO sensitivity.
+  @async
+  @ObjCSelector('getMaxIso')
+  int getMaxIso();
 
   /// Returns the minimum zoom level supported by the camera.
   @async

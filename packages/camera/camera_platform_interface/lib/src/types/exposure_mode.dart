@@ -9,6 +9,9 @@ enum ExposureMode {
 
   /// Lock the currently determined exposure settings.
   locked,
+
+  /// Manually control exposure settings (ISO and exposure time).
+  manual,
 }
 
 /// Returns the exposure mode as a String.
@@ -18,6 +21,8 @@ String serializeExposureMode(ExposureMode exposureMode) {
       return 'locked';
     case ExposureMode.auto:
       return 'auto';
+    case ExposureMode.manual:
+      return 'manual';
   }
 }
 
@@ -28,6 +33,8 @@ ExposureMode deserializeExposureMode(String str) {
       return ExposureMode.locked;
     case 'auto':
       return ExposureMode.auto;
+    case 'manual':
+      return ExposureMode.manual;
     default:
       throw ArgumentError('"$str" is not a valid ExposureMode value');
   }

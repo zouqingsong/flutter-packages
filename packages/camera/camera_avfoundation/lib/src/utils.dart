@@ -81,6 +81,7 @@ ExposureMode exposureModeFromPlatform(PlatformExposureMode mode) {
   return switch (mode) {
     PlatformExposureMode.auto => ExposureMode.auto,
     PlatformExposureMode.locked => ExposureMode.locked,
+    PlatformExposureMode.manual => ExposureMode.auto, // TODO: Change to ExposureMode.manual when available
   };
 }
 
@@ -89,5 +90,6 @@ FocusMode focusModeFromPlatform(PlatformFocusMode mode) {
   return switch (mode) {
     PlatformFocusMode.auto => FocusMode.auto,
     PlatformFocusMode.locked => FocusMode.locked,
+    PlatformFocusMode.manual => FocusMode.auto, // TODO: Change to FocusMode.manual when available
   };
 }
