@@ -240,6 +240,28 @@ public interface CameraProperties {
   int getSensorOrientation();
 
   /**
+   * Returns the range of sensor exposure times supported by this camera device.
+   *
+   * <p>By default maps to the @see
+   * android.hardware.camera2.CameraCharacteristics#SENSOR_INFO_EXPOSURE_TIME_RANGE key.
+   *
+   * @return android.util.Range<Long> Range of sensor exposure times in nanoseconds.
+   */
+  @Nullable
+  Range<Long> getSensorInfoExposureTimeRange();
+
+  /**
+   * Returns the range of sensor sensitivity values supported by this camera device.
+   *
+   * <p>By default maps to the @see
+   * android.hardware.camera2.CameraCharacteristics#SENSOR_INFO_SENSITIVITY_RANGE key.
+   *
+   * @return android.util.Range<Integer> Range of sensor sensitivity (ISO) values.
+   */
+  @Nullable
+  Range<Integer> getSensorInfoSensitivityRange();
+
+  /**
    * Returns a level which generally classifies the overall set of the camera device functionality.
    *
    * <p><strong>Possible values:</strong>

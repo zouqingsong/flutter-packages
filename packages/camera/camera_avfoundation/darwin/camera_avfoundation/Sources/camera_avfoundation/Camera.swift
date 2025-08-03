@@ -96,6 +96,36 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
     completion: @escaping (Result<Void, any Error>) -> Void
   )
 
+  /// Sets manual focus distance.
+  /// @param distance Focus distance value where 0.0 is closest and 1.0 is farthest.
+  func setManualFocusDistance(_ distance: Double)
+
+  /// Sets manual exposure time.
+  /// @param exposureTime Exposure time in microseconds.
+  func setManualExposureTime(_ exposureTime: Int)
+
+  /// Sets manual ISO sensitivity.
+  /// @param iso ISO sensitivity value.
+  func setManualIso(_ iso: Int)
+
+  /// Gets the minimum supported focus distance.
+  func getMinFocusDistance() -> Double
+
+  /// Gets the maximum supported focus distance.
+  func getMaxFocusDistance() -> Double
+
+  /// Gets the minimum supported exposure time in microseconds.
+  func getMinExposureTime() -> Int
+
+  /// Gets the maximum supported exposure time in microseconds.
+  func getMaxExposureTime() -> Int
+
+  /// Gets the minimum supported ISO value.
+  func getMinIso() -> Int
+
+  /// Gets the maximum supported ISO value.
+  func getMaxIso() -> Int
+
   func setZoomLevel(_ zoom: CGFloat, withCompletion: @escaping (Result<Void, any Error>) -> Void)
 
   func setVideoStabilizationMode(

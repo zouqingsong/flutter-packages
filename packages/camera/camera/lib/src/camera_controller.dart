@@ -969,6 +969,124 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
+  /// Sets the manual focus distance for the camera.
+  ///
+  /// The [distance] should be between 0.0 (closest) and 1.0 (farthest).
+  /// Only available when focus mode is set to manual.
+  ///
+  /// Throws a [CameraException] if the operation fails or if manual focus
+  /// is not supported.
+  Future<void> setManualFocusDistance(double distance) async {
+    _throwIfNotInitialized('setManualFocusDistance');
+    if (distance < 0.0 || distance > 1.0) {
+      throw ArgumentError(
+          'Focus distance should be between 0.0 and 1.0.');
+    }
+    try {
+      await CameraPlatform.instance.setManualFocusDistance(_cameraId, distance);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Sets the manual exposure time for the camera.
+  ///
+  /// The [exposureTime] should be in microseconds and within the supported
+  /// range of the camera. Only available when exposure mode is set to manual.
+  ///
+  /// Throws a [CameraException] if the operation fails or if manual exposure
+  /// is not supported.
+  Future<void> setManualExposureTime(int exposureTime) async {
+    _throwIfNotInitialized('setManualExposureTime');
+    if (exposureTime <= 0) {
+      throw ArgumentError('Exposure time should be greater than 0.');
+    }
+    try {
+      await CameraPlatform.instance.setManualExposureTime(_cameraId, exposureTime);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Sets the manual ISO sensitivity for the camera.
+  ///
+  /// The [iso] should be within the supported range of the camera.
+  /// Only available when exposure mode is set to manual.
+  ///
+  /// Throws a [CameraException] if the operation fails or if manual ISO
+  /// is not supported.
+  Future<void> setManualIso(int iso) async {
+    _throwIfNotInitialized('setManualIso');
+    if (iso <= 0) {
+      throw ArgumentError('ISO should be greater than 0.');
+    }
+    try {
+      await CameraPlatform.instance.setManualIso(_cameraId, iso);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the minimum supported focus distance for the camera.
+  Future<double> getMinFocusDistance() async {
+    _throwIfNotInitialized('getMinFocusDistance');
+    try {
+      return CameraPlatform.instance.getMinFocusDistance(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the maximum supported focus distance for the camera.
+  Future<double> getMaxFocusDistance() async {
+    _throwIfNotInitialized('getMaxFocusDistance');
+    try {
+      return CameraPlatform.instance.getMaxFocusDistance(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the minimum supported exposure time for the camera in microseconds.
+  Future<int> getMinExposureTime() async {
+    _throwIfNotInitialized('getMinExposureTime');
+    try {
+      return CameraPlatform.instance.getMinExposureTime(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the maximum supported exposure time for the camera in microseconds.
+  Future<int> getMaxExposureTime() async {
+    _throwIfNotInitialized('getMaxExposureTime');
+    try {
+      return CameraPlatform.instance.getMaxExposureTime(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the minimum supported ISO sensitivity for the camera.
+  Future<int> getMinIso() async {
+    _throwIfNotInitialized('getMinIso');
+    try {
+      return CameraPlatform.instance.getMinIso(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the maximum supported ISO sensitivity for the camera.
+  Future<int> getMaxIso() async {
+    _throwIfNotInitialized('getMaxIso');
+    try {
+      return CameraPlatform.instance.getMaxIso(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
   /// Check whether the camera platform supports image streaming.
   bool supportsImageStreaming() => CameraPlatform.instance.supportsImageStreaming();
 

@@ -316,6 +316,66 @@ class AndroidCamera extends CameraPlatform {
   }
 
   @override
+  Future<void> setManualFocusDistance(int cameraId, double distance) async {
+    assert(distance >= 0.0 && distance <= 1.0);
+    try {
+      await _hostApi.setManualFocusDistance(distance);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  @override
+  Future<double> getMinFocusDistance(int cameraId) async {
+    return _hostApi.getMinFocusDistance();
+  }
+
+  @override
+  Future<double> getMaxFocusDistance(int cameraId) async {
+    return _hostApi.getMaxFocusDistance();
+  }
+
+  @override
+  Future<void> setManualExposureTime(int cameraId, int exposureTime) async {
+    assert(exposureTime > 0);
+    try {
+      await _hostApi.setManualExposureTime(exposureTime);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  @override
+  Future<int> getMinExposureTime(int cameraId) async {
+    return _hostApi.getMinExposureTime();
+  }
+
+  @override
+  Future<int> getMaxExposureTime(int cameraId) async {
+    return _hostApi.getMaxExposureTime();
+  }
+
+  @override
+  Future<void> setManualIso(int cameraId, int iso) async {
+    assert(iso > 0);
+    try {
+      await _hostApi.setManualIso(iso);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  @override
+  Future<int> getMinIso(int cameraId) async {
+    return _hostApi.getMinIso();
+  }
+
+  @override
+  Future<int> getMaxIso(int cameraId) async {
+    return _hostApi.getMaxIso();
+  }
+
+  @override
   Future<double> getMaxZoomLevel(int cameraId) async {
     return _hostApi.getMaxZoomLevel();
   }

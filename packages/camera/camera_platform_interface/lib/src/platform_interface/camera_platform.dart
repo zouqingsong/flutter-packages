@@ -255,6 +255,63 @@ abstract class CameraPlatform extends PlatformInterface {
     throw UnimplementedError('setFocusPoint() is not implemented.');
   }
 
+  /// Sets the manual focus distance.
+  ///
+  /// The [distance] should be between 0.0 and 1.0, where 0.0 represents
+  /// the nearest focus distance and 1.0 represents the farthest (infinity).
+  /// Only available when focus mode is set to manual.
+  Future<void> setManualFocusDistance(int cameraId, double distance) {
+    throw UnimplementedError('setManualFocusDistance() is not implemented.');
+  }
+
+  /// Gets the minimum supported manual focus distance.
+  /// Returns 0.0 for cameras that support focusing to near infinity.
+  Future<double> getMinFocusDistance(int cameraId) {
+    throw UnimplementedError('getMinFocusDistance() is not implemented.');
+  }
+
+  /// Gets the maximum supported manual focus distance.
+  /// Returns the maximum focus distance supported by the camera.
+  Future<double> getMaxFocusDistance(int cameraId) {
+    throw UnimplementedError('getMaxFocusDistance() is not implemented.');
+  }
+
+  /// Sets the manual exposure time (shutter speed) in microseconds.
+  ///
+  /// Only available when exposure mode is set to manual.
+  /// The [exposureTime] should be within the supported range from the camera.
+  Future<void> setManualExposureTime(int cameraId, int exposureTime) {
+    throw UnimplementedError('setManualExposureTime() is not implemented.');
+  }
+
+  /// Gets the minimum supported exposure time in microseconds.
+  Future<int> getMinExposureTime(int cameraId) {
+    throw UnimplementedError('getMinExposureTime() is not implemented.');
+  }
+
+  /// Gets the maximum supported exposure time in microseconds.
+  Future<int> getMaxExposureTime(int cameraId) {
+    throw UnimplementedError('getMaxExposureTime() is not implemented.');
+  }
+
+  /// Sets the manual ISO sensitivity.
+  ///
+  /// Only available when exposure mode is set to manual.
+  /// The [iso] should be within the supported range from the camera.
+  Future<void> setManualIso(int cameraId, int iso) {
+    throw UnimplementedError('setManualIso() is not implemented.');
+  }
+
+  /// Gets the minimum supported ISO sensitivity.
+  Future<int> getMinIso(int cameraId) {
+    throw UnimplementedError('getMinIso() is not implemented.');
+  }
+
+  /// Gets the maximum supported ISO sensitivity.
+  Future<int> getMaxIso(int cameraId) {
+    throw UnimplementedError('getMaxIso() is not implemented.');
+  }
+
   /// Gets the maximum supported zoom level for the selected camera.
   Future<double> getMaxZoomLevel(int cameraId) {
     throw UnimplementedError('getMaxZoomLevel() is not implemented.');

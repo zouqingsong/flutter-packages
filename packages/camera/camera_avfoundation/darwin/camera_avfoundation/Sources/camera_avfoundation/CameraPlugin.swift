@@ -564,4 +564,67 @@ extension CameraPlugin: CameraApi {
       completion(.success(()))
     }
   }
+
+  func setManualFocusDistance(_ distance: Double, completion: @escaping (FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setManualFocusDistance(distance)
+      completion(nil)
+    }
+  }
+
+  func getMinFocusDistance(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let minDistance = self?.camera?.getMinFocusDistance() ?? 0.0
+      completion(NSNumber(value: minDistance), nil)
+    }
+  }
+
+  func getMaxFocusDistance(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let maxDistance = self?.camera?.getMaxFocusDistance() ?? 1.0
+      completion(NSNumber(value: maxDistance), nil)
+    }
+  }
+
+  func setManualExposureTime(_ exposureTime: Int, completion: @escaping (FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setManualExposureTime(exposureTime)
+      completion(nil)
+    }
+  }
+
+  func getMinExposureTime(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let minExposureTime = self?.camera?.getMinExposureTime() ?? 1000
+      completion(NSNumber(value: minExposureTime), nil)
+    }
+  }
+
+  func getMaxExposureTime(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let maxExposureTime = self?.camera?.getMaxExposureTime() ?? 1000000
+      completion(NSNumber(value: maxExposureTime), nil)
+    }
+  }
+
+  func setManualIso(_ iso: Int, completion: @escaping (FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setManualIso(iso)
+      completion(nil)
+    }
+  }
+
+  func getMinIso(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let minIso = self?.camera?.getMinIso() ?? 100
+      completion(NSNumber(value: minIso), nil)
+    }
+  }
+
+  func getMaxIso(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let maxIso = self?.camera?.getMaxIso() ?? 3200
+      completion(NSNumber(value: maxIso), nil)
+    }
+  }
 }

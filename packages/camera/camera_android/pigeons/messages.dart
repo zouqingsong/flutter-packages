@@ -31,10 +31,10 @@ class PlatformCameraDescription {
 enum PlatformDeviceOrientation { portraitUp, portraitDown, landscapeLeft, landscapeRight }
 
 /// Pigeon equivalent of [ExposureMode].
-enum PlatformExposureMode { auto, locked }
+enum PlatformExposureMode { auto, locked, manual }
 
 /// Pigeon equivalent of [FocusMode].
-enum PlatformFocusMode { auto, locked }
+enum PlatformFocusMode { auto, locked, manual }
 
 /// Data needed for [CameraInitializedEvent].
 class PlatformCameraState {
@@ -181,6 +181,39 @@ abstract class CameraApi {
   /// A null value resets to the default focus point.
   @async
   void setFocusPoint(PlatformPoint? point);
+
+  /// Sets the manual focus distance.
+  ///
+  /// The distance should be between 0.0 and 1.0, where 0.0 represents
+  /// the nearest focus distance and 1.0 represents the farthest (infinity).
+  @async
+  void setManualFocusDistance(double distance);
+
+  /// Returns the minimum supported manual focus distance.
+  double getMinFocusDistance();
+
+  /// Returns the maximum supported manual focus distance.
+  double getMaxFocusDistance();
+
+  /// Sets the manual exposure time (shutter speed) in microseconds.
+  @async
+  void setManualExposureTime(int exposureTime);
+
+  /// Returns the minimum supported exposure time in microseconds.
+  int getMinExposureTime();
+
+  /// Returns the maximum supported exposure time in microseconds.
+  int getMaxExposureTime();
+
+  /// Sets the manual ISO sensitivity.
+  @async
+  void setManualIso(int iso);
+
+  /// Returns the minimum supported ISO sensitivity.
+  int getMinIso();
+
+  /// Returns the maximum supported ISO sensitivity.
+  int getMaxIso();
 
   /// Returns the maximum zoom level of the camera with the given ID.
   double getMaxZoomLevel();

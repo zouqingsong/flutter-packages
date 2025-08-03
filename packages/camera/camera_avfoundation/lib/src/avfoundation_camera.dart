@@ -412,6 +412,52 @@ class AVFoundationCamera extends CameraPlatform {
     await _hostApi.setImageFileFormat(_pigeonImageFileFormat(format));
   }
 
+  Future<void> setManualFocusDistance(int cameraId, double distance) async {
+    await _hostApi.setManualFocusDistance(distance);
+  }
+
+  Future<void> setManualExposureTime(int cameraId, int exposureTime) async {
+    await _hostApi.setManualExposureTime(exposureTime);
+  }
+
+  Future<void> setManualIso(int cameraId, int iso) async {
+    await _hostApi.setManualIso(iso);
+  }
+
+  Future<double> getMinFocusDistance(int cameraId) async {
+    // iOS focus distance is always 0.0 to 1.0
+    return 0.0;
+  }
+
+  Future<double> getMaxFocusDistance(int cameraId) async {
+    // iOS focus distance is always 0.0 to 1.0
+    return 1.0;
+  }
+
+  Future<int> getMinExposureTime(int cameraId) async {
+    // This would need to be implemented to get actual device capabilities
+    // For now, return a reasonable minimum (1 microsecond)
+    return 1;
+  }
+
+  Future<int> getMaxExposureTime(int cameraId) async {
+    // This would need to be implemented to get actual device capabilities
+    // For now, return a reasonable maximum (1 second = 1,000,000 microseconds)
+    return 1000000;
+  }
+
+  Future<int> getMinIso(int cameraId) async {
+    // This would need to be implemented to get actual device capabilities
+    // For now, return ISO 100 as a reasonable minimum
+    return 100;
+  }
+
+  Future<int> getMaxIso(int cameraId) async {
+    // This would need to be implemented to get actual device capabilities
+    // For now, return ISO 3200 as a reasonable maximum
+    return 3200;
+  }
+
   @override
   Future<void> setJpegImageQuality(int cameraId, int quality) async {
     await _hostApi.setJpegImageQuality(quality);
@@ -429,6 +475,8 @@ class AVFoundationCamera extends CameraPlatform {
         return PlatformFocusMode.locked;
       case FocusMode.auto:
         return PlatformFocusMode.auto;
+      case FocusMode.manual:
+        return PlatformFocusMode.manual;
     }
     // The enum comes from a different package, which could get a new value at
     // any time, so provide a fallback that ensures this won't break when used
@@ -446,6 +494,8 @@ class AVFoundationCamera extends CameraPlatform {
         return PlatformExposureMode.locked;
       case ExposureMode.auto:
         return PlatformExposureMode.auto;
+      case ExposureMode.manual:
+        return PlatformExposureMode.manual;
     }
     // The enum comes from a different package, which could get a new value at
     // any time, so provide a fallback that ensures this won't break when used
