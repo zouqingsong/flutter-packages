@@ -860,10 +860,6 @@ final class DefaultCamera: NSObject, Camera {
       } else {
         captureDevice.exposureMode = .autoExpose
       }
-    case .manual:
-      if captureDevice.isExposureModeSupported(.custom) {
-        captureDevice.setExposureMode(.custom)
-      }
     @unknown default:
       assertionFailure("Unknown exposure mode")
     }
@@ -952,10 +948,6 @@ final class DefaultCamera: NSObject, Camera {
         captureDevice.focusMode = .continuousAutoFocus
       } else if captureDevice.isFocusModeSupported(.autoFocus) {
         captureDevice.focusMode = .autoFocus
-      }
-    case .manual:
-      if captureDevice.isFocusModeSupported(.locked) {
-        captureDevice.setFocusMode(.locked)
       }
     @unknown default:
       assertionFailure("Unknown focus mode")
@@ -1114,28 +1106,46 @@ final class DefaultCamera: NSObject, Camera {
 
   func setManualFocusDistance(_ distance: Double) {
     guard let device = captureDevice as? AVCaptureDevice else {
-      print("Cannot access AVCaptureDevice for manual focus")
+      print("❌ Cannot access AVCaptureDevice for manual focus")
       return
     }
+    
+    print("📱 Device: \(device.localizedName)")
+    print("📱 Position: \(device.position.rawValue)")
+    print("📱 Current lens position: \(device.lensPosition)")
     
     guard device.isFocusModeSupported(.locked) else {
-      print("Manual focus not supported on this device")
+      print("❌ Manual focus (.locked) not supported on this device")
       return
     }
     
-    // Ensure focus mode is set to manual first
-    if focusMode != .manual {
-      focusMode = .manual
-      applyFocusMode()
+    // Check if device supports manual lens positioning
+    guard device.isLockingFocusWithCustomLensPositionSupported else {
+      print("❌ Manual lens positioning not supported on this device")
+      return
     }
     
+    print("✅ Device supports manual focus")
+    
     do {
-      try device.lockForConfiguration()
-      // Set the lens position where 0.0 is closest, 1.0 is farthest
-      device.setFocusModeLocked(lensPosition: Float(distance), completionHandler: nil)
-      device.unlockForConfiguration()
+      try captureDevice.lockForConfiguration()
+      
+      print("🎯 Setting manual focus distance to: \(distance)")
+      print("🔄 Current focus mode: \(device.focusMode.rawValue)")
+      
+      // Set focus mode to locked and lens position in one atomic operation
+      device.setFocusModeLocked(lensPosition: Float(distance), completionHandler: { (time) in
+        print("✅ Focus distance set to \(distance) at time: \(time)")
+        print("📱 New lens position: \(device.lensPosition)")
+      })
+      
+      // Update our internal focus mode to locked (not manual since we removed manual)
+      focusMode = .locked
+      
+      captureDevice.unlockForConfiguration()
+      print("🔓 Device configuration unlocked")
     } catch {
-      print("Failed to set manual focus distance: \(error)")
+      print("❌ Failed to set manual focus distance: \(error)")
     }
   }
 
@@ -1150,14 +1160,13 @@ final class DefaultCamera: NSObject, Camera {
       return
     }
     
-    // Ensure exposure mode is set to manual first
-    if exposureMode != .manual {
-      exposureMode = .manual
-      applyExposureMode()
-    }
-    
     do {
-      try device.lockForConfiguration()
+      try captureDevice.lockForConfiguration()
+      
+      // Set exposure mode to custom (this is the manual exposure mode in AVFoundation)
+      captureDevice.setExposureMode(.custom)
+      exposureMode = .locked  // Update our internal state to locked
+      
       // Convert microseconds to CMTime
       let exposureDuration = CMTimeMake(value: Int64(exposureTime), timescale: 1_000_000)
       let activeFormat = device.activeFormat
@@ -1177,7 +1186,7 @@ final class DefaultCamera: NSObject, Camera {
       // Get current ISO or use a reasonable default
       let currentISO = device.iso
       device.setExposureModeCustom(duration: clampedExposure, iso: currentISO, completionHandler: nil)
-      device.unlockForConfiguration()
+      captureDevice.unlockForConfiguration()
     } catch {
       print("Failed to set manual exposure time: \(error)")
     }
@@ -1194,14 +1203,13 @@ final class DefaultCamera: NSObject, Camera {
       return
     }
     
-    // Ensure exposure mode is set to manual first
-    if exposureMode != .manual {
-      exposureMode = .manual
-      applyExposureMode()
-    }
-    
     do {
-      try device.lockForConfiguration()
+      try captureDevice.lockForConfiguration()
+      
+      // Set exposure mode to custom (this is the manual exposure mode in AVFoundation)
+      captureDevice.setExposureMode(.custom)
+      exposureMode = .locked  // Update our internal state to locked
+      
       let activeFormat = device.activeFormat
       let minISO = activeFormat.minISO
       let maxISO = activeFormat.maxISO
@@ -1212,7 +1220,7 @@ final class DefaultCamera: NSObject, Camera {
       // Get current exposure duration or use a reasonable default
       let currentDuration = device.exposureDuration
       device.setExposureModeCustom(duration: currentDuration, iso: clampedISO, completionHandler: nil)
-      device.unlockForConfiguration()
+      captureDevice.unlockForConfiguration()
     } catch {
       print("Failed to set manual ISO: \(error)")
     }

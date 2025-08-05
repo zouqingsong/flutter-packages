@@ -53,7 +53,6 @@ ExposureMode exposureModeFromPlatform(PlatformExposureMode exposureMode) =>
     switch (exposureMode) {
       PlatformExposureMode.auto => ExposureMode.auto,
       PlatformExposureMode.locked => ExposureMode.locked,
-      PlatformExposureMode.manual => ExposureMode.manual,
     };
 
 /// Converts a [ExposureMode] to [PlatformExposureMode].
@@ -63,8 +62,6 @@ PlatformExposureMode exposureModeToPlatform(ExposureMode exposureMode) {
       return PlatformExposureMode.auto;
     case ExposureMode.locked:
       return PlatformExposureMode.locked;
-    case ExposureMode.manual:
-      return PlatformExposureMode.manual;
   }
   // This enum is defined outside of this package. This fall-through case
   // ensures that the code does not break if a new value is ever added.
@@ -77,7 +74,6 @@ FocusMode focusModeFromPlatform(PlatformFocusMode focusMode) =>
     switch (focusMode) {
       PlatformFocusMode.auto => FocusMode.auto,
       PlatformFocusMode.locked => FocusMode.locked,
-      PlatformFocusMode.manual => FocusMode.manual,
     };
 
 /// Converts a [FocusMode] to [PlatformFocusMode].
@@ -87,8 +83,6 @@ PlatformFocusMode focusModeToPlatform(FocusMode focusMode) {
       return PlatformFocusMode.auto;
     case FocusMode.locked:
       return PlatformFocusMode.locked;
-    case FocusMode.manual:
-      return PlatformFocusMode.manual;
   }
   // This enum is defined outside of this package. This fall-through case
   // ensures that the code does not break if a new value is ever added.

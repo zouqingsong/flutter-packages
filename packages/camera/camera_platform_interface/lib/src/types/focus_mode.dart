@@ -9,9 +9,6 @@ enum FocusMode {
 
   /// Lock the currently determined focus settings.
   locked,
-
-  /// Manually control focus distance.
-  manual,
 }
 
 /// Returns the focus mode as a String.
@@ -21,8 +18,6 @@ String serializeFocusMode(FocusMode focusMode) {
       return 'locked';
     case FocusMode.auto:
       return 'auto';
-    case FocusMode.manual:
-      return 'manual';
   }
 }
 
@@ -33,8 +28,6 @@ FocusMode deserializeFocusMode(String str) {
       return FocusMode.locked;
     case 'auto':
       return FocusMode.auto;
-    case 'manual':
-      return FocusMode.manual;
     default:
       throw ArgumentError('"$str" is not a valid FocusMode value');
   }

@@ -57,6 +57,9 @@ import io.flutter.plugins.camera.features.resolution.ResolutionFeature;
 import io.flutter.plugins.camera.features.resolution.ResolutionPreset;
 import io.flutter.plugins.camera.features.sensororientation.DeviceOrientationManager;
 import io.flutter.plugins.camera.features.zoomlevel.ZoomLevelFeature;
+import io.flutter.plugins.camera.features.manualsettings.ManualExposureTimeFeature;
+import io.flutter.plugins.camera.features.manualsettings.ManualFocusDistanceFeature;
+import io.flutter.plugins.camera.features.manualsettings.ManualIsoFeature;
 import io.flutter.plugins.camera.media.ImageStreamReader;
 import io.flutter.plugins.camera.media.MediaRecorderBuilder;
 import io.flutter.plugins.camera.types.CameraCaptureProperties;
@@ -85,6 +88,15 @@ class Camera
    * one changes.
    */
   CameraFeatures cameraFeatures;
+
+  /** Manual exposure time feature for controlling shutter speed */
+  private ManualExposureTimeFeature manualExposureTimeFeature;
+
+  /** Manual focus distance feature for controlling focus distance */
+  private ManualFocusDistanceFeature manualFocusDistanceFeature;
+
+  /** Manual ISO feature for controlling ISO sensitivity */
+  private ManualIsoFeature manualIsoFeature;
 
   private int imageFormatGroup;
 
@@ -232,6 +244,15 @@ class Camera
             dartMessenger,
             videoCaptureSettings.resolutionPreset);
 
+    // Initialize manual exposure time feature
+    this.manualExposureTimeFeature = new ManualExposureTimeFeature(cameraProperties);
+
+    // Initialize manual focus distance feature
+    this.manualFocusDistanceFeature = new ManualFocusDistanceFeature(cameraProperties);
+
+    // Initialize manual ISO feature
+    this.manualIsoFeature = new ManualIsoFeature(cameraProperties);
+
     // Create capture callback.
     captureTimeouts = new CaptureTimeoutsWrapper(3000, 3000);
     captureProps = new CameraCaptureProperties();
@@ -256,11 +277,57 @@ class Camera
    * @param requestBuilder request builder to update.
    */
   void updateBuilderSettings(CaptureRequest.Builder requestBuilder) {
+    // Check if any manual controls are active FIRST
+    boolean hasManualExposureTime = manualExposureTimeFeature != null && manualExposureTimeFeature.getValue() != null && manualExposureTimeFeature.getValue() > 0;
+    boolean hasManualIso = manualIsoFeature != null && manualIsoFeature.getValue() != null && manualIsoFeature.getValue() > 0;
+    boolean hasManualFocus = manualFocusDistanceFeature != null && manualFocusDistanceFeature.getValue() != null && manualFocusDistanceFeature.getValue() > 0.0;
+    
+    // Debug logging to understand the state
+    Log.d(TAG, "updateBuilderSettings - hasManualExposureTime: " + hasManualExposureTime + 
+          ", hasManualIso: " + hasManualIso + ", hasManualFocus: " + hasManualFocus);
+    
+    // FIRST: Let all camera features apply their settings (including exposure offset)
+    // This ensures exposure offset is set with proper defaults and control modes
     for (CameraFeature<?> feature : cameraFeatures.getAllFeatures()) {
-      if (BuildConfig.DEBUG) {
-        Log.d(TAG, "Updating builder with feature: " + feature.getDebugName());
-      }
       feature.updateBuilder(requestBuilder);
+    }
+    
+    // THEN: Only override control modes if we actually have manual exposure controls
+    // This prevents us from interfering with exposure offset when no manual controls are active
+    if (hasManualExposureTime || hasManualIso) {
+      // Any manual exposure control requires turning off auto exposure
+      Log.d(TAG, "Overriding to manual exposure mode (CONTROL_MODE_OFF, CONTROL_AE_MODE_OFF)");
+      requestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);
+      requestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
+      
+      // Apply manual exposure controls
+      if (hasManualExposureTime) {
+        long exposureTimeNs = manualExposureTimeFeature.getValue() * 1000L;
+        Log.d(TAG, "Applying manual exposure time: " + exposureTimeNs + "ns");
+        requestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, exposureTimeNs);
+      }
+      
+      if (hasManualIso) {
+        Log.d(TAG, "Applying manual ISO: " + manualIsoFeature.getValue());
+        requestBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, manualIsoFeature.getValue());
+      }
+    } else {
+      // No manual exposure controls - don't interfere with exposure offset
+      Log.d(TAG, "No manual exposure controls active - letting exposure offset control modes");
+    }
+    
+    // Manual focus distance is independent of exposure controls
+    if (hasManualFocus && manualFocusDistanceFeature.checkIsSupported()) {
+      requestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
+      
+      Float minFocus = cameraProperties.getLensInfoMinimumFocusDistance();
+      if (minFocus != null && minFocus > 0) {
+        // Convert normalized distance (0.0 to 1.0) to actual distance
+        // 0.0 = closest focus distance, 1.0 = infinity (0.0 diopters)
+        float focusDistance = (float) (minFocus * (1.0 - manualFocusDistanceFeature.getValue()));
+        Log.d(TAG, "Applying manual focus distance: " + focusDistance);
+        requestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, focusDistance);
+      }
     }
   }
 
@@ -946,7 +1013,20 @@ class Camera
       @NonNull final Messages.VoidResult result, @NonNull ExposureMode newMode) {
     final ExposureLockFeature exposureLockFeature = cameraFeatures.getExposureLock();
     exposureLockFeature.setValue(newMode);
-    exposureLockFeature.updateBuilder(previewRequestBuilder);
+
+    // If switching to auto mode, reset manual controls to allow exposure offset to work
+    if (newMode == ExposureMode.auto) {
+      // Reset manual exposure time and ISO to 0 when switching to auto mode
+      if (manualExposureTimeFeature != null) {
+        manualExposureTimeFeature.setValue(0);
+      }
+      if (manualIsoFeature != null) {
+        manualIsoFeature.setValue(0);
+      }
+    }
+
+    // Rebuild the capture request completely to ensure clean state
+    updateBuilderSettings(previewRequestBuilder);
 
     refreshPreviewCaptureSession(
         result::success,
@@ -1063,16 +1143,23 @@ class Camera
    * @param offset new value.
    */
   public void setExposureOffset(@NonNull final Messages.Result<Double> result, double offset) {
+    Log.d(TAG, "setExposureOffset called with offset: " + offset);
     final ExposureOffsetFeature exposureOffsetFeature = cameraFeatures.getExposureOffset();
     exposureOffsetFeature.setValue(offset);
+    Log.d(TAG, "ExposureOffsetFeature setValue complete, calling updateBuilder");
     exposureOffsetFeature.updateBuilder(previewRequestBuilder);
 
     refreshPreviewCaptureSession(
-        () -> result.success(exposureOffsetFeature.getValue()),
-        (code, message) ->
-            result.error(
-                new Messages.FlutterError(
-                    "setExposureOffsetFailed", "Could not set exposure offset.", null)));
+        () -> {
+          Log.d(TAG, "setExposureOffset success, returning value: " + exposureOffsetFeature.getValue());
+          result.success(exposureOffsetFeature.getValue());
+        },
+        (code, message) -> {
+          Log.e(TAG, "setExposureOffset failed: " + message);
+          result.error(
+              new Messages.FlutterError(
+                  "setExposureOffsetFailed", "Could not set exposure offset.", null));
+        });
   }
 
   public float getMaxZoomLevel() {
@@ -1090,18 +1177,48 @@ class Camera
    * @param distance new focus distance (0.0 to 1.0).
    */
   public void setManualFocusDistance(@NonNull final Messages.VoidResult result, double distance) {
-    // Implementation will be added when manual focus feature is integrated
-    result.error(new Messages.FlutterError("notImplemented", "Manual focus distance not yet implemented.", null));
+    if (manualFocusDistanceFeature == null) {
+      result.error(new Messages.FlutterError("notSupported", "Manual focus distance not supported on this device.", null));
+      return;
+    }
+    
+    if (!manualFocusDistanceFeature.checkIsSupported()) {
+      result.error(new Messages.FlutterError("notSupported", "Manual focus distance not supported on this device.", null));
+      return;
+    }
+    
+    try {
+      // Set the focus distance value
+      manualFocusDistanceFeature.setValue(distance);
+      
+      // Rebuild the capture request with the new setting
+      if (previewRequestBuilder != null) {
+        updateBuilderSettings(previewRequestBuilder);
+        if (captureSession != null) {
+          captureSession.setRepeatingRequest(previewRequestBuilder.build(), null, backgroundHandler);
+        }
+      }
+      
+      result.success();
+    } catch (Exception e) {
+      result.error(new Messages.FlutterError("cameraException", "Failed to set manual focus distance: " + e.getMessage(), null));
+    }
   }
 
   /** Return the min focus distance supported by the camera to dart. */
   public double getMinFocusDistance() {
-    return 0.0; // Closest focus
+    if (manualFocusDistanceFeature != null && manualFocusDistanceFeature.checkIsSupported()) {
+      return manualFocusDistanceFeature.getMinFocusDistance();
+    }
+    return 0.0; // Default closest focus
   }
 
   /** Return the max focus distance supported by the camera to dart. */
   public double getMaxFocusDistance() {
-    return 1.0; // Infinity focus
+    if (manualFocusDistanceFeature != null && manualFocusDistanceFeature.checkIsSupported()) {
+      return manualFocusDistanceFeature.getMaxFocusDistance();
+    }
+    return 1.0; // Default infinity focus
   }
 
   /**
@@ -1111,20 +1228,48 @@ class Camera
    * @param exposureTime new exposure time in microseconds.
    */
   public void setManualExposureTime(@NonNull final Messages.VoidResult result, int exposureTime) {
-    // Implementation will be added when manual exposure feature is integrated
-    result.error(new Messages.FlutterError("notImplemented", "Manual exposure time not yet implemented.", null));
+    if (manualExposureTimeFeature == null) {
+      result.error(new Messages.FlutterError("notSupported", "Manual exposure time not supported on this device.", null));
+      return;
+    }
+    
+    if (!manualExposureTimeFeature.checkIsSupported()) {
+      result.error(new Messages.FlutterError("notSupported", "Manual exposure time not supported on this device.", null));
+      return;
+    }
+    
+    try {
+      // Set the exposure time value
+      manualExposureTimeFeature.setValue(exposureTime);
+      
+      // Rebuild the capture request with the new setting
+      if (previewRequestBuilder != null) {
+        updateBuilderSettings(previewRequestBuilder);
+        if (captureSession != null) {
+          captureSession.setRepeatingRequest(previewRequestBuilder.build(), null, backgroundHandler);
+        }
+      }
+      
+      result.success();
+    } catch (Exception e) {
+      result.error(new Messages.FlutterError("cameraException", "Failed to set manual exposure time: " + e.getMessage(), null));
+    }
   }
 
   /** Return the min exposure time supported by the camera to dart. */
   public int getMinExposureTime() {
-    // Implementation will return actual minimum when feature is complete
-    return 1000; // 1ms default
+    if (manualExposureTimeFeature != null && manualExposureTimeFeature.checkIsSupported()) {
+      return manualExposureTimeFeature.getMinExposureTime();
+    }
+    return 1000; // 1ms default fallback
   }
 
   /** Return the max exposure time supported by the camera to dart. */
   public int getMaxExposureTime() {
-    // Implementation will return actual maximum when feature is complete
-    return 1000000; // 1s default
+    if (manualExposureTimeFeature != null && manualExposureTimeFeature.checkIsSupported()) {
+      return manualExposureTimeFeature.getMaxExposureTime();
+    }
+    return 1000000; // 1s default fallback
   }
 
   /**
@@ -1134,19 +1279,47 @@ class Camera
    * @param iso new ISO value.
    */
   public void setManualIso(@NonNull final Messages.VoidResult result, int iso) {
-    // Implementation will be added when manual ISO feature is integrated
-    result.error(new Messages.FlutterError("notImplemented", "Manual ISO not yet implemented.", null));
+    if (manualIsoFeature == null) {
+      result.error(new Messages.FlutterError("notSupported", "Manual ISO not supported on this device.", null));
+      return;
+    }
+    
+    if (!manualIsoFeature.checkIsSupported()) {
+      result.error(new Messages.FlutterError("notSupported", "Manual ISO not supported on this device.", null));
+      return;
+    }
+    
+    try {
+      // Set the ISO value
+      manualIsoFeature.setValue(iso);
+      
+      // Rebuild the capture request with the new setting
+      if (previewRequestBuilder != null) {
+        updateBuilderSettings(previewRequestBuilder);
+        if (captureSession != null) {
+          captureSession.setRepeatingRequest(previewRequestBuilder.build(), null, backgroundHandler);
+        }
+      }
+      
+      result.success();
+    } catch (Exception e) {
+      result.error(new Messages.FlutterError("cameraException", "Failed to set manual ISO: " + e.getMessage(), null));
+    }
   }
 
   /** Return the min ISO supported by the camera to dart. */
   public int getMinIso() {
-    // Implementation will return actual minimum when feature is complete
+    if (manualIsoFeature != null && manualIsoFeature.checkIsSupported()) {
+      return manualIsoFeature.getMinIso();
+    }
     return 100; // Default minimum
   }
 
   /** Return the max ISO supported by the camera to dart. */
   public int getMaxIso() {
-    // Implementation will return actual maximum when feature is complete
+    if (manualIsoFeature != null && manualIsoFeature.checkIsSupported()) {
+      return manualIsoFeature.getMaxIso();
+    }
     return 3200; // Default maximum
   }
 

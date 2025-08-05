@@ -41,6 +41,7 @@ public class ExposureOffsetFeature extends CameraFeature<Double> {
   public void setValue(@NonNull Double value) {
     double stepSize = getExposureOffsetStepSize();
     this.currentSetting = value / stepSize;
+    android.util.Log.d("ExposureOffsetFeature", "setValue: input=" + value + ", stepSize=" + stepSize + ", currentSetting=" + currentSetting);
   }
 
   // Available on all devices.
@@ -55,6 +56,13 @@ public class ExposureOffsetFeature extends CameraFeature<Double> {
       return;
     }
 
+    // Ensure we're in auto exposure mode for exposure compensation to work
+    requestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
+    requestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+
+    android.util.Log.d("ExposureOffsetFeature", "updateBuilder: setting CONTROL_AE_EXPOSURE_COMPENSATION to " + (int) currentSetting);
+    android.util.Log.d("ExposureOffsetFeature", "updateBuilder: ensuring CONTROL_MODE=AUTO and CONTROL_AE_MODE=ON");
+    
     requestBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, (int) currentSetting);
   }
 

@@ -1302,6 +1302,153 @@ class AndroidCameraCameraX extends CameraPlatform {
     return cameraImageDataStreamController!.stream;
   }
 
+  // Manual camera control methods:
+
+  /// Sets the manual focus distance for the camera.
+  ///
+  /// [distance] should be between 0.0 (infinity focus) and 1.0 (closest focus).
+  /// 
+  /// **Manual camera controls are not supported in CameraX implementation.**
+  /// 
+  /// To use manual camera controls, switch to the Camera2 implementation by:
+  /// 1. In your pubspec.yaml, replace:
+  ///    ```yaml
+  ///    dependencies:
+  ///      camera: ^0.10.0
+  ///    ```
+  ///    with:
+  ///    ```yaml
+  ///    dependencies:
+  ///      camera_android: ^0.10.0  # Camera2 implementation
+  ///      camera: ^0.10.0
+  ///    ```
+  /// 2. Or use dependency overrides to force Camera2 implementation.
+  @override
+  Future<void> setManualFocusDistance(int cameraId, double distance) async {
+    throw CameraException(
+      'notSupported',
+      'Manual focus distance control requires Camera2 implementation. '
+          'CameraX does not support manual camera controls. '
+          'Switch to camera_android package for manual controls.',
+    );
+  }
+
+  /// Gets the minimum focus distance supported by the camera.
+  ///
+  /// Returns 0.0 indicating infinity focus is supported.
+  @override
+  Future<double> getMinFocusDistance(int cameraId) async {
+    // CameraX assumes all cameras support infinity focus (0.0)
+    return 0.0;
+  }
+
+  /// Gets the maximum focus distance supported by the camera.
+  ///
+  /// Returns 1.0 indicating close focus is supported up to this value.
+  @override
+  Future<double> getMaxFocusDistance(int cameraId) async {
+    // CameraX uses normalized focus distance where 1.0 is closest focus
+    return 1.0;
+  }
+
+  /// Sets the manual exposure time for the camera.
+  ///
+  /// [exposureTime] should be in microseconds.
+  /// 
+  /// **Manual camera controls are not supported in CameraX implementation.**
+  /// 
+  /// To use manual camera controls, switch to the Camera2 implementation by:
+  /// 1. In your pubspec.yaml, replace:
+  ///    ```yaml
+  ///    dependencies:
+  ///      camera: ^0.10.0
+  ///    ```
+  ///    with:
+  ///    ```yaml
+  ///    dependencies:
+  ///      camera_android: ^0.10.0  # Camera2 implementation
+  ///      camera: ^0.10.0
+  ///    ```
+  /// 2. Or use dependency overrides to force Camera2 implementation.
+  @override
+  Future<void> setManualExposureTime(int cameraId, int exposureTime) async {
+    throw CameraException(
+      'notSupported',
+      'Manual exposure time control requires Camera2 implementation. '
+          'CameraX does not support manual camera controls. '
+          'Switch to camera_android package for manual controls.',
+    );
+  }
+
+  /// Gets the minimum exposure time supported by the camera in microseconds.
+  ///
+  /// Returns a default minimum exposure time since CameraX doesn't directly
+  /// expose this information without Camera2 interop.
+  @override
+  Future<int> getMinExposureTime(int cameraId) async {
+    // Default minimum exposure time (1/8000 second = 125 microseconds)
+    return 125;
+  }
+
+  /// Gets the maximum exposure time supported by the camera in microseconds.
+  ///
+  /// Returns a default maximum exposure time since CameraX doesn't directly
+  /// expose this information without Camera2 interop.
+  @override
+  Future<int> getMaxExposureTime(int cameraId) async {
+    // Default maximum exposure time (1 second = 1,000,000 microseconds)
+    return 1000000;
+  }
+
+  /// Sets the manual ISO value for the camera.
+  ///
+  /// [iso] should be within the supported range of the camera.
+  /// 
+  /// **Manual camera controls are not supported in CameraX implementation.**
+  /// 
+  /// To use manual camera controls, switch to the Camera2 implementation by:
+  /// 1. In your pubspec.yaml, replace:
+  ///    ```yaml
+  ///    dependencies:
+  ///      camera: ^0.10.0
+  ///    ```
+  ///    with:
+  ///    ```yaml
+  ///    dependencies:
+  ///      camera_android: ^0.10.0  # Camera2 implementation
+  ///      camera: ^0.10.0
+  ///    ```
+  /// 2. Or use dependency overrides to force Camera2 implementation.
+  @override
+  Future<void> setManualIso(int cameraId, int iso) async {
+    throw CameraException(
+      'notSupported',
+      'Manual ISO control requires Camera2 implementation. '
+          'CameraX does not support manual camera controls. '
+          'Switch to camera_android package for manual controls.',
+    );
+  }
+
+  /// Gets the minimum ISO value supported by the camera.
+  ///
+  /// Returns a default minimum ISO value since CameraX doesn't directly
+  /// expose this information without Camera2 interop.
+  @override
+  Future<int> getMinIso(int cameraId) async {
+    // Default minimum ISO (typical minimum for most cameras)
+    return 100;
+  }
+
+  /// Gets the maximum ISO value supported by the camera.
+  ///
+  /// Returns a default maximum ISO value since CameraX doesn't directly
+  /// expose this information without Camera2 interop.
+  @override
+  Future<int> getMaxIso(int cameraId) async {
+    // Default maximum ISO (typical maximum for most mobile cameras)
+    return 3200;
+  }
+
   // Methods for binding UseCases to the lifecycle of the camera controlled
   // by a ProcessCameraProvider instance:
 
