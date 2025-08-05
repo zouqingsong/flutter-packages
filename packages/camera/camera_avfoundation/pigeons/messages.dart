@@ -42,13 +42,13 @@ enum PlatformCameraLensType {
 enum PlatformDeviceOrientation { portraitUp, landscapeLeft, portraitDown, landscapeRight }
 
 // Pigeon version of ExposureMode.
-enum PlatformExposureMode { auto, locked, manual }
+enum PlatformExposureMode { auto, locked }
 
 // Pigeon version of FlashMode.
 enum PlatformFlashMode { off, auto, always, torch }
 
 // Pigeon version of FocusMode.
-enum PlatformFocusMode { auto, locked, manual }
+enum PlatformFocusMode { auto, locked }
 
 /// Pigeon version of ImageFileFormat.
 enum PlatformImageFileFormat { jpeg, heif }

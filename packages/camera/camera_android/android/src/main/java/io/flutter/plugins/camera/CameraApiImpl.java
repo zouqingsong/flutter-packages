@@ -368,41 +368,41 @@ final class CameraApiImpl implements Messages.CameraApi {
   }
 
   @Override
-  public void setManualExposureTime(@NonNull Integer exposureTime, @NonNull Messages.VoidResult result) {
+  public void setManualExposureTime(@NonNull Long exposureTime, @NonNull Messages.VoidResult result) {
     try {
-      camera.setManualExposureTime(result, exposureTime);
+      camera.setManualExposureTime(result, exposureTime.intValue());
     } catch (Exception e) {
       handleException(e, result);
     }
   }
 
   @Override
-  public @NonNull Integer getMinExposureTime() {
-    return camera.getMinExposureTime();
+  public @NonNull Long getMinExposureTime() {
+    return (long) camera.getMinExposureTime();
   }
 
   @Override
-  public @NonNull Integer getMaxExposureTime() {
-    return camera.getMaxExposureTime();
+  public @NonNull Long getMaxExposureTime() {
+    return (long) camera.getMaxExposureTime();
   }
 
   @Override
-  public void setManualIso(@NonNull Integer iso, @NonNull Messages.VoidResult result) {
+  public void setManualIso(@NonNull Long iso, @NonNull Messages.VoidResult result) {
     try {
-      camera.setManualIso(result, iso);
+      camera.setManualIso(result, iso.intValue());
     } catch (Exception e) {
       handleException(e, result);
     }
   }
 
   @Override
-  public @NonNull Integer getMinIso() {
-    return camera.getMinIso();
+  public @NonNull Long getMinIso() {
+    return (long) camera.getMinIso();
   }
 
   @Override
-  public @NonNull Integer getMaxIso() {
-    return camera.getMaxIso();
+  public @NonNull Long getMaxIso() {
+    return (long) camera.getMaxIso();
   }
 
   @Override

@@ -50,17 +50,14 @@ public class ManualFocusDistanceFeature extends CameraFeature<Double> {
 
   @Override
   public void updateBuilder(@NonNull CaptureRequest.Builder requestBuilder) {
+    // Manual focus distance is handled by Camera.java in updateBuilderSettings
+    // This method is kept for compatibility but doesn't apply settings directly
     if (!checkIsSupported()) {
       return;
     }
-
-    Float minFocus = cameraProperties.getLensInfoMinimumFocusDistance();
-    if (minFocus != null && minFocus > 0) {
-      // Convert normalized distance (0.0 to 1.0) to actual distance
-      // 0.0 = closest focus distance, 1.0 = infinity (0.0 diopters)
-      float focusDistance = (float) (minFocus * (1.0 - currentSetting));
-      requestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, focusDistance);
-    }
+    
+    // The actual setting is handled by Camera.java in updateBuilderSettings
+    // Camera.java will check if currentSetting > 0.0 and apply the focus distance
   }
 
   /**

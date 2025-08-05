@@ -7,56 +7,55 @@ package io.flutter.plugins.camera.features.manualsettings;
 import android.annotation.SuppressLint;
 import android.hardware.camera2.CaptureRequest;
 import android.util.Range;
-import androidx.annotation.NonNull;
 import io.flutter.plugins.camera.CameraProperties;
 import io.flutter.plugins.camera.features.CameraFeature;
 
-/** Controls the manual exposure time (shutter speed) for the camera. */
+/** Controls the manual exposure time for the camera. */
 public class ManualExposureTimeFeature extends CameraFeature<Integer> {
-  private int currentSetting = 0; // Exposure time in microseconds
+  private Integer currentSetting = 0;
 
   /**
    * Creates a new instance of the {@link ManualExposureTimeFeature}.
    *
    * @param cameraProperties Collection of the characteristics for the current camera device.
    */
-  public ManualExposureTimeFeature(@NonNull CameraProperties cameraProperties) {
+  public ManualExposureTimeFeature(CameraProperties cameraProperties) {
     super(cameraProperties);
   }
 
-  @NonNull
-  @Override
   public String getDebugName() {
     return "ManualExposureTimeFeature";
   }
 
   @SuppressLint("KotlinPropertyAccess")
-  @NonNull
-  @Override
   public Integer getValue() {
     return currentSetting;
   }
 
-  @Override
-  public void setValue(@NonNull Integer value) {
-    this.currentSetting = value;
+  /**
+   * Sets the manual exposure time value.
+   *
+   * @param value The exposure time in microseconds.
+   */
+  public void setValue(Integer value) {
+    if (value == null) {
+      currentSetting = 0;
+    } else {
+      currentSetting = value;
+    }
   }
 
   @Override
-  public boolean checkIsSupported() {
-    Range<Long> exposureTimeRange = cameraProperties.getSensorInfoExposureTimeRange();
-    return exposureTimeRange != null;
-  }
-
-  @Override
-  public void updateBuilder(@NonNull CaptureRequest.Builder requestBuilder) {
+  public void updateBuilder(CaptureRequest.Builder requestBuilder) {
+    // The control modes (CONTROL_MODE, CONTROL_AE_MODE) are handled by Camera.java
+    // This feature only applies the exposure time value when needed
+    // Camera.java will check if currentSetting > 0 and coordinate all manual controls
     if (!checkIsSupported()) {
       return;
     }
-
-    // Convert microseconds to nanoseconds (Camera2 API uses nanoseconds)
-    long exposureTimeNs = currentSetting * 1000L;
-    requestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, exposureTimeNs);
+    
+    // The actual setting is handled by Camera.java in updateBuilderSettings
+    // This method is kept for compatibility but doesn't apply settings directly
   }
 
   /**
@@ -65,12 +64,12 @@ public class ManualExposureTimeFeature extends CameraFeature<Integer> {
    * @return int Minimum exposure time in microseconds.
    */
   public int getMinExposureTime() {
-    Range<Long> exposureTimeRange = cameraProperties.getSensorInfoExposureTimeRange();
-    if (exposureTimeRange == null) {
+    Range<Long> range = cameraProperties.getSensorInfoExposureTimeRange();
+    if (range == null) {
       return 0;
     }
     // Convert nanoseconds to microseconds
-    return (int) (exposureTimeRange.getLower() / 1000L);
+    return (int) (range.getLower() / 1000L);
   }
 
   /**
@@ -79,14 +78,21 @@ public class ManualExposureTimeFeature extends CameraFeature<Integer> {
    * @return int Maximum exposure time in microseconds.
    */
   public int getMaxExposureTime() {
-    Range<Long> exposureTimeRange = cameraProperties.getSensorInfoExposureTimeRange();
-    if (exposureTimeRange == null) {
+    Range<Long> range = cameraProperties.getSensorInfoExposureTimeRange();
+    if (range == null) {
       return 0;
     }
-    // Convert nanoseconds to microseconds, cap at reasonable max
-    long maxTimeNs = exposureTimeRange.getUpper();
-    long maxTimeMicros = maxTimeNs / 1000L;
-    // Cap at 30 seconds (30,000,000 microseconds) for practical use
-    return (int) Math.min(maxTimeMicros, 30_000_000L);
+    // Convert nanoseconds to microseconds and limit to reasonable maximum
+    long maxNs = range.getUpper();
+    long maxMicros = maxNs / 1000L;
+    
+    // Limit to 30 seconds (30,000,000 microseconds) to prevent unreasonably long exposures
+    return (int) Math.min(maxMicros, 30_000_000L);
+  }
+
+  @Override
+  public boolean checkIsSupported() {
+    Range<Long> range = cameraProperties.getSensorInfoExposureTimeRange();
+    return range != null && range.getLower() != null && range.getUpper() != null;
   }
 }

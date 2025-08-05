@@ -31,10 +31,10 @@ class PlatformCameraDescription {
 enum PlatformDeviceOrientation { portraitUp, portraitDown, landscapeLeft, landscapeRight }
 
 /// Pigeon equivalent of [ExposureMode].
-enum PlatformExposureMode { auto, locked, manual }
+enum PlatformExposureMode { auto, locked }
 
 /// Pigeon equivalent of [FocusMode].
-enum PlatformFocusMode { auto, locked, manual }
+enum PlatformFocusMode { auto, locked }
 
 /// Data needed for [CameraInitializedEvent].
 class PlatformCameraState {

@@ -50,11 +50,15 @@ public class ManualIsoFeature extends CameraFeature<Integer> {
 
   @Override
   public void updateBuilder(@NonNull CaptureRequest.Builder requestBuilder) {
+    // The control modes (CONTROL_MODE, CONTROL_AE_MODE) are handled by Camera.java  
+    // This feature only provides the ISO value when needed
+    // Camera.java will check if currentSetting > 0 and coordinate all manual controls
     if (!checkIsSupported()) {
       return;
     }
-
-    requestBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, currentSetting);
+    
+    // The actual setting is handled by Camera.java in updateBuilderSettings
+    // This method is kept for compatibility but doesn't apply settings directly
   }
 
   /**
