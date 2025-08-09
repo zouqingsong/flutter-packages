@@ -19,6 +19,7 @@ import io.flutter.plugins.camera.features.noisereduction.NoiseReductionFeature;
 import io.flutter.plugins.camera.features.resolution.ResolutionFeature;
 import io.flutter.plugins.camera.features.resolution.ResolutionPreset;
 import io.flutter.plugins.camera.features.sensororientation.SensorOrientationFeature;
+import io.flutter.plugins.camera.features.whitebalance.WhiteBalanceFeature;
 import io.flutter.plugins.camera.features.zoomlevel.ZoomLevelFeature;
 
 /**
@@ -104,5 +105,11 @@ public class CameraFeatureFactoryImpl implements CameraFeatureFactory {
   public NoiseReductionFeature createNoiseReductionFeature(
       @NonNull CameraProperties cameraProperties) {
     return new NoiseReductionFeature(cameraProperties);
+  }
+
+  @NonNull
+  @Override
+  public WhiteBalanceFeature createWhiteBalanceFeature(@NonNull CameraProperties cameraProperties) {
+    return new WhiteBalanceFeature(cameraProperties);
   }
 }

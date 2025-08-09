@@ -91,3 +91,11 @@ FocusMode focusModeFromPlatform(PlatformFocusMode mode) {
     PlatformFocusMode.locked => FocusMode.locked,
   };
 }
+
+/// Converts a Pigeon [PlatformWhiteBalanceMode] to a [WhiteBalanceMode].
+WhiteBalanceMode whiteBalanceModeFromPlatform(PlatformWhiteBalanceMode mode) {
+  return switch (mode) {
+    PlatformWhiteBalanceMode.auto => WhiteBalanceMode.auto,
+    PlatformWhiteBalanceMode.locked => WhiteBalanceMode.locked,
+  };
+}

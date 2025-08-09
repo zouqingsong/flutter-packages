@@ -294,4 +294,22 @@ public final class CameraUtils {
     }
     throw new IllegalStateException("Unreachable code");
   }
+
+  /**
+   * Converts a WhiteBalanceMode to PlatformWhiteBalanceMode for Pigeon.
+   *
+   * @param whiteBalanceMode A WhiteBalanceMode.
+   * @return The corresponding PlatformWhiteBalanceMode.
+   */
+  @NonNull
+  public static Messages.PlatformWhiteBalanceMode whiteBalanceModeToPigeon(
+      @NonNull io.flutter.plugins.camera.features.whitebalance.WhiteBalanceMode whiteBalanceMode) {
+    switch (whiteBalanceMode) {
+      case auto:
+        return Messages.PlatformWhiteBalanceMode.AUTO;
+      case locked:
+        return Messages.PlatformWhiteBalanceMode.LOCKED;
+    }
+    return Messages.PlatformWhiteBalanceMode.AUTO;
+  }
 }

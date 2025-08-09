@@ -1,26 +1,28 @@
-// Copyright 2013 The Flutter Authors
+// Copyright 2013 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import 'package:pigeon/pigeon.dart';
 
-@ConfigurePigeon(
-  PigeonOptions(
-    dartOut: 'lib/src/messages.g.dart',
-    javaOptions: JavaOptions(package: 'io.flutter.plugins.camera'),
-    javaOut: 'android/src/main/java/io/flutter/plugins/camera/Messages.java',
-    copyrightHeader: 'pigeons/copyright.txt',
-  ),
-)
+@ConfigurePigeon(PigeonOptions(
+  dartOut: 'lib/src/messages.g.dart',
+  javaOptions: JavaOptions(package: 'io.flutter.plugins.camera'),
+  javaOut: 'android/src/main/java/io/flutter/plugins/camera/Messages.java',
+  copyrightHeader: 'pigeons/copyright.txt',
+))
+
 /// Pigeon equivalent of [CameraLensDirection].
-enum PlatformCameraLensDirection { front, back, external }
+enum PlatformCameraLensDirection {
+  front,
+  back,
+  external,
+}
 
 /// Pigeon equivalent of [CameraDescription].
 class PlatformCameraDescription {
-  PlatformCameraDescription({
-    required this.name,
-    required this.lensDirection,
-    required this.sensorOrientation,
-  });
+  PlatformCameraDescription(
+      {required this.name,
+      required this.lensDirection,
+      required this.sensorOrientation});
 
   final String name;
   final PlatformCameraLensDirection lensDirection;
@@ -36,10 +38,16 @@ enum PlatformDeviceOrientation {
 }
 
 /// Pigeon equivalent of [ExposureMode].
-enum PlatformExposureMode { auto, locked }
+enum PlatformExposureMode {
+  auto,
+  locked,
+}
 
 /// Pigeon equivalent of [FocusMode].
-enum PlatformFocusMode { auto, locked }
+enum PlatformFocusMode {
+  auto,
+  locked,
+}
 
 /// Pigeon equivalent of [WhiteBalanceMode].
 enum PlatformWhiteBalanceMode {
@@ -49,17 +57,18 @@ enum PlatformWhiteBalanceMode {
 
 /// Data needed for [CameraInitializedEvent].
 class PlatformCameraState {
-  PlatformCameraState({
-    required this.previewSize,
-    required this.exposureMode,
-    required this.focusMode,
-    required this.exposurePointSupported,
-    required this.focusPointSupported,
-  });
+  PlatformCameraState(
+      {required this.previewSize,
+      required this.exposureMode,
+      required this.focusMode,
+      required this.whiteBalanceMode,
+      required this.exposurePointSupported,
+      required this.focusPointSupported});
 
   final PlatformSize previewSize;
   final PlatformExposureMode exposureMode;
   final PlatformFocusMode focusMode;
+  final PlatformWhiteBalanceMode whiteBalanceMode;
   final bool exposurePointSupported;
   final bool focusPointSupported;
 }
@@ -81,17 +90,23 @@ class PlatformPoint {
 }
 
 /// Pigeon equivalent of [ResolutionPreset].
-enum PlatformResolutionPreset { low, medium, high, veryHigh, ultraHigh, max }
+enum PlatformResolutionPreset {
+  low,
+  medium,
+  high,
+  veryHigh,
+  ultraHigh,
+  max,
+}
 
 /// Pigeon equivalent of [MediaSettings].
 class PlatformMediaSettings {
-  PlatformMediaSettings({
-    required this.resolutionPreset,
-    required this.enableAudio,
-    this.fps,
-    this.videoBitrate,
-    this.audioBitrate,
-  });
+  PlatformMediaSettings(
+      {required this.resolutionPreset,
+      required this.enableAudio,
+      this.fps,
+      this.videoBitrate,
+      this.audioBitrate});
   final PlatformResolutionPreset resolutionPreset;
   final int? fps;
   final int? videoBitrate;
@@ -108,7 +123,12 @@ enum PlatformImageFormatGroup {
 }
 
 /// Pigeon equivalent of [FlashMode].
-enum PlatformFlashMode { off, auto, always, torch }
+enum PlatformFlashMode {
+  off,
+  auto,
+  always,
+  torch,
+}
 
 /// Handles calls from Dart to the native side.
 @HostApi()

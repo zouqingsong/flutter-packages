@@ -62,5 +62,16 @@ void main() {
         DeviceOrientation.landscapeLeft,
       );
     });
+
+    test('whiteBalanceModeFromPlatform() should convert correctly', () {
+      expect(
+        whiteBalanceModeFromPlatform(PlatformWhiteBalanceMode.auto),
+        WhiteBalanceMode.auto,
+      );
+      expect(
+        whiteBalanceModeFromPlatform(PlatformWhiteBalanceMode.locked),
+        WhiteBalanceMode.locked,
+      );
+    });
   });
 }

@@ -72,7 +72,7 @@ public class DartMessengerTest {
             })
         .when(mockEventApi)
         .initialized(any(), any());
-    dartMessenger.sendCameraInitializedEvent(0, 0, ExposureMode.auto, FocusMode.auto, true, true);
+    dartMessenger.sendCameraInitializedEvent(0, 0, ExposureMode.auto, FocusMode.auto, io.flutter.plugins.camera.features.whitebalance.WhiteBalanceMode.auto, true, true);
 
     assertEquals(1, statesList.size());
     Messages.PlatformCameraState state = statesList.get(0);

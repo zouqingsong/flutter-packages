@@ -19,6 +19,7 @@ import io.flutter.plugins.camera.features.noisereduction.NoiseReductionFeature;
 import io.flutter.plugins.camera.features.resolution.ResolutionFeature;
 import io.flutter.plugins.camera.features.resolution.ResolutionPreset;
 import io.flutter.plugins.camera.features.sensororientation.SensorOrientationFeature;
+import io.flutter.plugins.camera.features.whitebalance.WhiteBalanceFeature;
 import io.flutter.plugins.camera.features.zoomlevel.ZoomLevelFeature;
 import java.util.Collection;
 import java.util.HashMap;
@@ -41,6 +42,7 @@ public class CameraFeatures {
   private static final String REGION_BOUNDARIES = "REGION_BOUNDARIES";
   private static final String RESOLUTION = "RESOLUTION";
   private static final String SENSOR_ORIENTATION = "SENSOR_ORIENTATION";
+  private static final String WHITE_BALANCE = "WHITE_BALANCE";
   private static final String ZOOM_LEVEL = "ZOOM_LEVEL";
 
   @NonNull
@@ -73,6 +75,8 @@ public class CameraFeatures {
     cameraFeatures.setResolution(
         cameraFeatureFactory.createResolutionFeature(
             cameraProperties, resolutionPreset, cameraProperties.getCameraName()));
+    cameraFeatures.setWhiteBalance(
+        cameraFeatureFactory.createWhiteBalanceFeature(cameraProperties));
     cameraFeatures.setZoomLevel(cameraFeatureFactory.createZoomLevelFeature(cameraProperties));
     return cameraFeatures;
   }
@@ -296,5 +300,24 @@ public class CameraFeatures {
    */
   public void setZoomLevel(@NonNull ZoomLevelFeature zoomLevel) {
     this.featureMap.put(ZOOM_LEVEL, zoomLevel);
+  }
+
+  /**
+   * Gets the white balance feature if it has been set.
+   *
+   * @return the white balance feature.
+   */
+  @NonNull
+  public WhiteBalanceFeature getWhiteBalance() {
+    return (WhiteBalanceFeature) Objects.requireNonNull(featureMap.get(WHITE_BALANCE));
+  }
+
+  /**
+   * Sets the instance of the white balance feature.
+   *
+   * @param whiteBalance the {@link WhiteBalanceFeature} instance to set.
+   */
+  public void setWhiteBalance(@NonNull WhiteBalanceFeature whiteBalance) {
+    this.featureMap.put(WHITE_BALANCE, whiteBalance);
   }
 }

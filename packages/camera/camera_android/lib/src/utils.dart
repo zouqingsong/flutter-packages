@@ -90,6 +90,13 @@ PlatformFocusMode focusModeToPlatform(FocusMode focusMode) {
   return PlatformFocusMode.auto;
 }
 
+/// Converts a [PlatformWhiteBalanceMode] to [WhiteBalanceMode].
+WhiteBalanceMode whiteBalanceModeFromPlatform(PlatformWhiteBalanceMode whiteBalanceMode) =>
+    switch (whiteBalanceMode) {
+      PlatformWhiteBalanceMode.auto => WhiteBalanceMode.auto,
+      PlatformWhiteBalanceMode.locked => WhiteBalanceMode.locked,
+    };
+
 /// Converts a [ResolutionPreset] to [PlatformResolutionPreset].
 PlatformResolutionPreset resolutionPresetToPlatform(ResolutionPreset? preset) =>
     switch (preset) {
@@ -151,6 +158,20 @@ PlatformFlashMode flashModeToPlatform(FlashMode mode) {
   // ensures that the code does not break if a new value is ever added.
   // ignore: dead_code
   return PlatformFlashMode.auto;
+}
+
+/// Converts a [WhiteBalanceMode] to [PlatformWhiteBalanceMode].
+PlatformWhiteBalanceMode whiteBalanceModeToPlatform(WhiteBalanceMode mode) {
+  switch (mode) {
+    case WhiteBalanceMode.auto:
+      return PlatformWhiteBalanceMode.auto;
+    case WhiteBalanceMode.locked:
+      return PlatformWhiteBalanceMode.locked;
+  }
+  // This enum is defined outside of this package. This fall-through case
+  // ensures that the code does not break if a new value is ever added.
+  // ignore: dead_code
+  return PlatformWhiteBalanceMode.auto;
 }
 
 /// Converts a [Point<double>] to [PlatformPoint].
