@@ -275,7 +275,7 @@ public class CameraTest {
     inOrder.verify(camera.captureSession, times(1)).setRepeatingRequest(any(), any(), any());
     inOrder
         .verify(mockDartMessenger, times(1))
-        .sendCameraInitializedEvent(any(), any(), any(), any(), any(), any());
+        .sendCameraInitializedEvent(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test

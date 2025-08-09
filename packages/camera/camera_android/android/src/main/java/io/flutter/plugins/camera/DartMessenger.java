@@ -11,6 +11,7 @@ import io.flutter.embedding.engine.systemchannels.PlatformChannel;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugins.camera.features.autofocus.FocusMode;
 import io.flutter.plugins.camera.features.exposurelock.ExposureMode;
+import io.flutter.plugins.camera.features.whitebalance.WhiteBalanceMode;
 
 /** Utility class that facilitates communication to the Flutter client */
 public class DartMessenger {
@@ -50,13 +51,14 @@ public class DartMessenger {
                 CameraUtils.orientationToPigeon(orientation), new NoOpVoidResult()));
   }
 
-  /**
-   * Sends a message to the Flutter client informing that the camera has been initialized.
+    /**
+   * Send an intialized event to inform the Dart object that the Camera has been initialized.
    *
-   * @param previewWidth describes the preview width that is supported by the camera.
-   * @param previewHeight describes the preview height that is supported by the camera.
-   * @param exposureMode describes the current exposure mode that is set on the camera.
-   * @param focusMode describes the current focus mode that is set on the camera.
+   * @param previewWidth the width of the camera preview stream.
+   * @param previewHeight the height of the camera preview stream.
+   * @param exposureMode the current exposure mode of the camera.
+   * @param focusMode the current focus mode of the camera.
+   * @param whiteBalanceMode the current white balance mode of the camera.
    * @param exposurePointSupported indicates if the camera supports setting an exposure point.
    * @param focusPointSupported indicates if the camera supports setting a focus point.
    */
@@ -65,12 +67,14 @@ public class DartMessenger {
       Integer previewHeight,
       ExposureMode exposureMode,
       FocusMode focusMode,
+      WhiteBalanceMode whiteBalanceMode,
       Boolean exposurePointSupported,
       Boolean focusPointSupported) {
     assert (previewWidth != null);
     assert (previewHeight != null);
     assert (exposureMode != null);
     assert (focusMode != null);
+    assert (whiteBalanceMode != null);
     assert (exposurePointSupported != null);
     assert (focusPointSupported != null);
     handler.post(
@@ -86,6 +90,7 @@ public class DartMessenger {
                     .setFocusPointSupported(focusPointSupported)
                     .setExposureMode(CameraUtils.exposureModeToPigeon(exposureMode))
                     .setFocusMode(CameraUtils.focusModeToPigeon(focusMode))
+                    .setWhiteBalanceMode(CameraUtils.whiteBalanceModeToPigeon(whiteBalanceMode))
                     .build(),
                 new NoOpVoidResult()));
   }

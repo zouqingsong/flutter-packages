@@ -15,11 +15,11 @@ import io.flutter.plugins.camera.features.exposurepoint.ExposurePointFeature;
 import io.flutter.plugins.camera.features.flash.FlashFeature;
 import io.flutter.plugins.camera.features.focuspoint.FocusPointFeature;
 import io.flutter.plugins.camera.features.fpsrange.FpsRangeFeature;
-import io.flutter.plugins.camera.features.jpegquality.JpegQualityFeature;
 import io.flutter.plugins.camera.features.noisereduction.NoiseReductionFeature;
 import io.flutter.plugins.camera.features.resolution.ResolutionFeature;
 import io.flutter.plugins.camera.features.resolution.ResolutionPreset;
 import io.flutter.plugins.camera.features.sensororientation.SensorOrientationFeature;
+import io.flutter.plugins.camera.features.whitebalance.WhiteBalanceFeature;
 import io.flutter.plugins.camera.features.zoomlevel.ZoomLevelFeature;
 
 /**
@@ -160,12 +160,12 @@ public interface CameraFeatureFactory {
   NoiseReductionFeature createNoiseReductionFeature(@NonNull CameraProperties cameraProperties);
 
   /**
-   * Creates a new instance of the JPEG quality feature.
+   * Creates a new instance of the white balance feature.
    *
    * @param cameraProperties instance of the CameraProperties class containing information about the
    *     cameras features.
-   * @return newly created instance of the JpegQualityFeature class.
+   * @return newly created instance of the WhiteBalanceFeature class.
    */
   @NonNull
-  JpegQualityFeature createJpegQualityFeature(@NonNull CameraProperties cameraProperties);
+  WhiteBalanceFeature createWhiteBalanceFeature(@NonNull CameraProperties cameraProperties);
 }

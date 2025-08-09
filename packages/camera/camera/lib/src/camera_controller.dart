@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors
+// Copyright 2013 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,6 +28,10 @@ Future<List<CameraDescription>> availableCameras() async {
   return CameraPlatform.instance.availableCameras();
 }
 
+// TODO(stuartmorgan): Remove this once the package requires 2.10, where the
+// dart:async `unawaited` accepts a nullable future.
+void _unawaited(Future<void>? future) {}
+
 /// The state of a [CameraController].
 class CameraValue {
   /// Creates a new camera controller state.
@@ -51,28 +55,26 @@ class CameraValue {
     this.recordingOrientation,
     this.isPreviewPaused = false,
     this.previewPauseOrientation,
-    this.videoStabilizationMode = VideoStabilizationMode.off,
   }) : _isRecordingPaused = isRecordingPaused;
 
   /// Creates a new camera controller state for an uninitialized controller.
   const CameraValue.uninitialized(CameraDescription description)
-    : this(
-        isInitialized: false,
-        isRecordingVideo: false,
-        isTakingPicture: false,
-        isStreamingImages: false,
-        isRecordingPaused: false,
-        flashMode: FlashMode.auto,
-        exposureMode: ExposureMode.auto,
-        exposurePointSupported: false,
-        focusMode: FocusMode.auto,
-        whiteBalanceMode: WhiteBalanceMode.auto,
-        focusPointSupported: false,
-        deviceOrientation: DeviceOrientation.portraitUp,
-        isPreviewPaused: false,
-        description: description,
-        videoStabilizationMode: VideoStabilizationMode.off,
-      );
+      : this(
+          isInitialized: false,
+          isRecordingVideo: false,
+          isTakingPicture: false,
+          isStreamingImages: false,
+          isRecordingPaused: false,
+          flashMode: FlashMode.auto,
+          exposureMode: ExposureMode.auto,
+          exposurePointSupported: false,
+          focusMode: FocusMode.auto,
+          whiteBalanceMode: WhiteBalanceMode.auto,
+          focusPointSupported: false,
+          deviceOrientation: DeviceOrientation.portraitUp,
+          isPreviewPaused: false,
+          description: description,
+        );
 
   /// True after [CameraController.initialize] has completed successfully.
   final bool isInitialized;
@@ -151,9 +153,6 @@ class CameraValue {
   /// The properties of the camera device controlled by this controller.
   final CameraDescription description;
 
-  /// The current video stabilization mode.
-  final VideoStabilizationMode videoStabilizationMode;
-
   /// Creates a modified copy of the object.
   ///
   /// Explicitly specified fields get the specified value, all other fields get
@@ -178,11 +177,10 @@ class CameraValue {
     bool? isPreviewPaused,
     CameraDescription? description,
     Optional<DeviceOrientation>? previewPauseOrientation,
-    VideoStabilizationMode? videoStabilizationMode,
   }) {
     return CameraValue(
       isInitialized: isInitialized ?? this.isInitialized,
-      errorDescription: errorDescription ?? this.errorDescription,
+      errorDescription: errorDescription,
       previewSize: previewSize ?? this.previewSize,
       isRecordingVideo: isRecordingVideo ?? this.isRecordingVideo,
       isTakingPicture: isTakingPicture ?? this.isTakingPicture,
@@ -207,7 +205,6 @@ class CameraValue {
       previewPauseOrientation: previewPauseOrientation == null
           ? this.previewPauseOrientation
           : previewPauseOrientation.orNull,
-      videoStabilizationMode: videoStabilizationMode ?? this.videoStabilizationMode,
     );
   }
 
@@ -230,7 +227,6 @@ class CameraValue {
         'recordingOrientation: $recordingOrientation, '
         'isPreviewPaused: $isPreviewPaused, '
         'previewPausedOrientation: $previewPauseOrientation, '
-        'videoStabilizationMode: $videoStabilizationMode, '
         'description: $description)';
   }
 }
@@ -261,14 +257,13 @@ class CameraController extends ValueNotifier<CameraValue> {
     int? videoBitrate,
     int? audioBitrate,
     this.imageFormatGroup,
-  }) : mediaSettings = MediaSettings(
-         resolutionPreset: resolutionPreset,
-         enableAudio: enableAudio,
-         fps: fps,
-         videoBitrate: videoBitrate,
-         audioBitrate: audioBitrate,
-       ),
-       super(CameraValue.uninitialized(description));
+  })  : mediaSettings = MediaSettings(
+            resolutionPreset: resolutionPreset,
+            enableAudio: enableAudio,
+            fps: fps,
+            videoBitrate: videoBitrate,
+            audioBitrate: audioBitrate),
+        super(CameraValue.uninitialized(description));
 
   /// The properties of the camera device controlled by this controller.
   CameraDescription get description => value.description;
@@ -279,7 +274,8 @@ class CameraController extends ValueNotifier<CameraValue> {
   /// if unavailable a lower resolution will be used.
   ///
   /// See also: [ResolutionPreset].
-  ResolutionPreset get resolutionPreset => mediaSettings.resolutionPreset ?? ResolutionPreset.max;
+  ResolutionPreset get resolutionPreset =>
+      mediaSettings.resolutionPreset ?? ResolutionPreset.max;
 
   /// Whether to include audio when recording a video.
   bool get enableAudio => mediaSettings.enableAudio;
@@ -309,7 +305,8 @@ class CameraController extends ValueNotifier<CameraValue> {
   // just called). If the controller has not been initialized at least once,
   // this value is null.
   Future<void>? _initializeFuture;
-  StreamSubscription<DeviceOrientationChangedEvent>? _deviceOrientationSubscription;
+  StreamSubscription<DeviceOrientationChangedEvent>?
+      _deviceOrientationSubscription;
 
   /// Checks whether [CameraController.dispose] has completed successfully.
   ///
@@ -337,60 +334,57 @@ class CameraController extends ValueNotifier<CameraValue> {
       );
     }
 
-    final initializeCompleter = Completer<void>();
+    final Completer<void> initializeCompleter = Completer<void>();
     _initializeFuture = initializeCompleter.future;
 
     try {
-      final initializeCompleter = Completer<CameraInitializedEvent>();
+      final Completer<CameraInitializedEvent> initializeCompleter =
+          Completer<CameraInitializedEvent>();
 
       _deviceOrientationSubscription ??= CameraPlatform.instance
           .onDeviceOrientationChanged()
           .listen((DeviceOrientationChangedEvent event) {
-            if (!_isDisposed) {
-              value = value.copyWith(deviceOrientation: event.orientation);
-            }
-          });
+        value = value.copyWith(
+          deviceOrientation: event.orientation,
+        );
+      });
 
       _cameraId = await CameraPlatform.instance.createCameraWithSettings(
         description,
         mediaSettings,
       );
 
-      unawaited(
-        CameraPlatform.instance.onCameraInitialized(_cameraId).first.then((
-          CameraInitializedEvent event,
-        ) {
-          initializeCompleter.complete(event);
-        }),
-      );
-
-      unawaited(
-        CameraPlatform.instance.onCameraError(_cameraId).first.then((CameraErrorEvent event) {
-          if (!_isDisposed) {
-            value = value.copyWith(errorDescription: event.description);
-          }
-        }),
-      );
+      _unawaited(CameraPlatform.instance
+          .onCameraInitialized(_cameraId)
+          .first
+          .then((CameraInitializedEvent event) {
+        initializeCompleter.complete(event);
+      }));
 
       await CameraPlatform.instance.initializeCamera(
         _cameraId,
         imageFormatGroup: imageFormatGroup ?? ImageFormatGroup.unknown,
       );
 
-      final CameraInitializedEvent event = await initializeCompleter.future;
-
-      // The controller may be disposed while awaiting initialization above.
-      if (!_isDisposed) {
-        value = value.copyWith(
-          isInitialized: true,
-          description: description,
-          previewSize: Size(event.previewWidth, event.previewHeight),
-          exposureMode: event.exposureMode,
-          focusMode: event.focusMode,
-          exposurePointSupported: event.exposurePointSupported,
-          focusPointSupported: event.focusPointSupported,
-        );
-      }
+      value = value.copyWith(
+        isInitialized: true,
+        description: description,
+        previewSize: await initializeCompleter.future
+            .then((CameraInitializedEvent event) => Size(
+                  event.previewWidth,
+                  event.previewHeight,
+                )),
+        exposureMode: await initializeCompleter.future
+            .then((CameraInitializedEvent event) => event.exposureMode),
+        focusMode: await initializeCompleter.future
+            .then((CameraInitializedEvent event) => event.focusMode),
+        whiteBalanceMode: await initializeCompleter.future
+            .then((CameraInitializedEvent event) => event.whiteBalanceMode),
+        exposurePointSupported: await initializeCompleter.future.then(
+            (CameraInitializedEvent event) => event.exposurePointSupported),
+        focusPointSupported: await initializeCompleter.future
+            .then((CameraInitializedEvent event) => event.focusPointSupported),
+      );
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     } finally {
@@ -421,11 +415,9 @@ class CameraController extends ValueNotifier<CameraValue> {
     try {
       await CameraPlatform.instance.pausePreview(_cameraId);
       value = value.copyWith(
-        isPreviewPaused: true,
-        previewPauseOrientation: Optional<DeviceOrientation>.of(
-          value.lockedCaptureOrientation ?? value.deviceOrientation,
-        ),
-      );
+          isPreviewPaused: true,
+          previewPauseOrientation: Optional<DeviceOrientation>.of(
+              value.lockedCaptureOrientation ?? value.deviceOrientation));
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
@@ -439,19 +431,14 @@ class CameraController extends ValueNotifier<CameraValue> {
     try {
       await CameraPlatform.instance.resumePreview(_cameraId);
       value = value.copyWith(
-        isPreviewPaused: false,
-        previewPauseOrientation: const Optional<DeviceOrientation>.absent(),
-      );
+          isPreviewPaused: false,
+          previewPauseOrientation: const Optional<DeviceOrientation>.absent());
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
   }
 
   /// Sets the description of the camera.
-  ///
-  /// On Android, you must start the recording with [startVideoRecording]
-  /// with `enablePersistentRecording` set to `true`
-  /// to avoid cancelling any active recording.
   ///
   /// Throws a [CameraException] if setting the description fails.
   Future<void> setDescription(CameraDescription description) async {
@@ -524,11 +511,11 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
 
     try {
-      _imageStreamSubscription = CameraPlatform.instance.onStreamedFrameAvailable(_cameraId).listen(
-        (CameraImageData imageData) {
-          onAvailable(CameraImage.fromPlatformInterface(imageData));
-        },
-      );
+      _imageStreamSubscription = CameraPlatform.instance
+          .onStreamedFrameAvailable(_cameraId)
+          .listen((CameraImageData imageData) {
+        onAvailable(CameraImage.fromPlatformInterface(imageData));
+      });
       value = value.copyWith(isStreamingImages: true);
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
@@ -568,16 +555,8 @@ class CameraController extends ValueNotifier<CameraValue> {
   ///
   /// The video is returned as a [XFile] after calling [stopVideoRecording].
   /// Throws a [CameraException] if the capture fails.
-  ///
-  /// `enablePersistentRecording` parameter configures the recording to be a persistent recording.
-  /// A persistent recording can only be stopped by explicitly calling [stopVideoRecording]
-  /// and will ignore events that would normally cause recording to stop,
-  /// such as lifecycle events or explicit calls to [setDescription] while recording is in progress.
-  /// Currently a no-op on platforms other than Android.
-  Future<void> startVideoRecording({
-    onLatestImageAvailable? onAvailable,
-    bool enablePersistentRecording = true,
-  }) async {
+  Future<void> startVideoRecording(
+      {onLatestImageAvailable? onAvailable}) async {
     _throwIfNotInitialized('startVideoRecording');
     if (value.isRecordingVideo) {
       throw CameraException(
@@ -595,20 +574,13 @@ class CameraController extends ValueNotifier<CameraValue> {
 
     try {
       await CameraPlatform.instance.startVideoCapturing(
-        VideoCaptureOptions(
-          _cameraId,
-          streamCallback: streamCallback,
-          enablePersistentRecording: enablePersistentRecording,
-        ),
-      );
+          VideoCaptureOptions(_cameraId, streamCallback: streamCallback));
       value = value.copyWith(
-        isRecordingVideo: true,
-        isRecordingPaused: false,
-        recordingOrientation: Optional<DeviceOrientation>.of(
-          value.lockedCaptureOrientation ?? value.deviceOrientation,
-        ),
-        isStreamingImages: onAvailable != null,
-      );
+          isRecordingVideo: true,
+          isRecordingPaused: false,
+          recordingOrientation: Optional<DeviceOrientation>.of(
+              value.lockedCaptureOrientation ?? value.deviceOrientation),
+          isStreamingImages: onAvailable != null);
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
@@ -631,7 +603,8 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
 
     try {
-      final XFile file = await CameraPlatform.instance.stopVideoRecording(_cameraId);
+      final XFile file =
+          await CameraPlatform.instance.stopVideoRecording(_cameraId);
       value = value.copyWith(
         isRecordingVideo: false,
         recordingOrientation: const Optional<DeviceOrientation>.absent(),
@@ -724,87 +697,6 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
-  /// Set the video stabilization mode for the selected camera.
-  ///
-  /// When [allowFallback] is true (default) the camera will be set to the best
-  /// video stabilization mode up to, and including, [mode].
-  ///
-  /// When [allowFallback] is false and if [mode] is not one of the supported
-  /// modes (see [getSupportedVideoStabilizationModes]), then it throws an
-  /// [ArgumentError].
-  ///
-  /// This feature is only available if [getSupportedVideoStabilizationModes]
-  /// returns at least one value other than [VideoStabilizationMode.off].
-  Future<void> setVideoStabilizationMode(
-    VideoStabilizationMode mode, {
-    bool allowFallback = true,
-  }) async {
-    _throwIfNotInitialized('setVideoStabilizationMode');
-    try {
-      final VideoStabilizationMode? modeToSet = await _getVideoStabilizationModeToSet(
-        mode,
-        allowFallback,
-      );
-
-      // When _getVideoStabilizationModeToSet returns null
-      // it means that the device doesn't support any
-      // video stabilization mode and that doing nothing
-      // is valid because allowFallback is true or [mode]
-      // is [VideoStabilizationMode.off], so this results
-      // in a no-op.
-      if (modeToSet == null) {
-        return;
-      }
-      await CameraPlatform.instance.setVideoStabilizationMode(_cameraId, modeToSet);
-      value = value.copyWith(videoStabilizationMode: modeToSet);
-    } on PlatformException catch (e) {
-      throw CameraException(e.code, e.message);
-    }
-  }
-
-  Future<VideoStabilizationMode?> _getVideoStabilizationModeToSet(
-    VideoStabilizationMode requestedMode,
-    bool allowFallback,
-  ) async {
-    final Iterable<VideoStabilizationMode> supportedModes = await CameraPlatform.instance
-        .getSupportedVideoStabilizationModes(_cameraId);
-
-    // If it can't fallback and the specific
-    // requested mode isn't available, then...
-    if (!allowFallback && !supportedModes.contains(requestedMode)) {
-      // if the request is off, it is a no-op
-      if (requestedMode == VideoStabilizationMode.off) {
-        return null;
-      }
-      // otherwise, it throws.
-      throw ArgumentError('Unavailable video stabilization mode.', 'mode');
-    }
-
-    VideoStabilizationMode? fallbackMode = requestedMode;
-    while (fallbackMode != null && !supportedModes.contains(fallbackMode)) {
-      fallbackMode = CameraPlatform.getFallbackVideoStabilizationMode(fallbackMode);
-    }
-
-    return fallbackMode;
-  }
-
-  /// Gets a list of video stabilization modes that are supported
-  /// for the selected camera.
-  ///
-  /// [VideoStabilizationMode.off] will always be listed.
-  Future<Iterable<VideoStabilizationMode>> getSupportedVideoStabilizationModes() async {
-    _throwIfNotInitialized('getSupportedVideoStabilizationModes');
-    try {
-      final modes = <VideoStabilizationMode>{
-        VideoStabilizationMode.off,
-        ...await CameraPlatform.instance.getSupportedVideoStabilizationModes(_cameraId),
-      };
-      return modes;
-    } on PlatformException catch (e) {
-      throw CameraException(e.code, e.message);
-    }
-  }
-
   /// Sets the flash mode for taking pictures.
   Future<void> setFlashMode(FlashMode mode) async {
     _throwIfNotInitialized('setFlashMode');
@@ -836,14 +728,18 @@ class CameraController extends ValueNotifier<CameraValue> {
     if (point != null &&
         (point.dx < 0 || point.dx > 1 || point.dy < 0 || point.dy > 1)) {
       throw ArgumentError(
-        'The values of point should be anywhere between (0,0) and (1,1).',
-      );
+          'The values of point should be anywhere between (0,0) and (1,1).');
     }
 
     try {
       await CameraPlatform.instance.setExposurePoint(
         _cameraId,
-        point == null ? null : Point<double>(point.dx, point.dy),
+        point == null
+            ? null
+            : Point<double>(
+                point.dx,
+                point.dy,
+              ),
       );
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
@@ -854,7 +750,7 @@ class CameraController extends ValueNotifier<CameraValue> {
   Future<double> getMinExposureOffset() async {
     _throwIfNotInitialized('getMinExposureOffset');
     try {
-      return await CameraPlatform.instance.getMinExposureOffset(_cameraId);
+      return CameraPlatform.instance.getMinExposureOffset(_cameraId);
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
@@ -864,7 +760,7 @@ class CameraController extends ValueNotifier<CameraValue> {
   Future<double> getMaxExposureOffset() async {
     _throwIfNotInitialized('getMaxExposureOffset');
     try {
-      return await CameraPlatform.instance.getMaxExposureOffset(_cameraId);
+      return CameraPlatform.instance.getMaxExposureOffset(_cameraId);
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
@@ -876,7 +772,7 @@ class CameraController extends ValueNotifier<CameraValue> {
   Future<double> getExposureOffsetStepSize() async {
     _throwIfNotInitialized('getExposureOffsetStepSize');
     try {
-      return await CameraPlatform.instance.getExposureOffsetStepSize(_cameraId);
+      return CameraPlatform.instance.getExposureOffsetStepSize(_cameraId);
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
@@ -896,10 +792,8 @@ class CameraController extends ValueNotifier<CameraValue> {
   Future<double> setExposureOffset(double offset) async {
     _throwIfNotInitialized('setExposureOffset');
     // Check if offset is in range
-    final List<double> range = await Future.wait(<Future<double>>[
-      getMinExposureOffset(),
-      getMaxExposureOffset(),
-    ]);
+    final List<double> range = await Future.wait(
+        <Future<double>>[getMinExposureOffset(), getMaxExposureOffset()]);
     if (offset < range[0] || offset > range[1]) {
       throw CameraException(
         'exposureOffsetOutOfBounds',
@@ -921,7 +815,7 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
 
     try {
-      return await CameraPlatform.instance.setExposureOffset(_cameraId, offset);
+      return CameraPlatform.instance.setExposureOffset(_cameraId, offset);
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
@@ -933,14 +827,10 @@ class CameraController extends ValueNotifier<CameraValue> {
   Future<void> lockCaptureOrientation([DeviceOrientation? orientation]) async {
     try {
       await CameraPlatform.instance.lockCaptureOrientation(
-        _cameraId,
-        orientation ?? value.deviceOrientation,
-      );
+          _cameraId, orientation ?? value.deviceOrientation);
       value = value.copyWith(
-        lockedCaptureOrientation: Optional<DeviceOrientation>.of(
-          orientation ?? value.deviceOrientation,
-        ),
-      );
+          lockedCaptureOrientation: Optional<DeviceOrientation>.of(
+              orientation ?? value.deviceOrientation));
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
@@ -961,7 +851,8 @@ class CameraController extends ValueNotifier<CameraValue> {
   Future<void> unlockCaptureOrientation() async {
     try {
       await CameraPlatform.instance.unlockCaptureOrientation(_cameraId);
-      value = value.copyWith(lockedCaptureOrientation: const Optional<DeviceOrientation>.absent());
+      value = value.copyWith(
+          lockedCaptureOrientation: const Optional<DeviceOrientation>.absent());
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
@@ -976,13 +867,17 @@ class CameraController extends ValueNotifier<CameraValue> {
     if (point != null &&
         (point.dx < 0 || point.dx > 1 || point.dy < 0 || point.dy > 1)) {
       throw ArgumentError(
-        'The values of point should be anywhere between (0,0) and (1,1).',
-      );
+          'The values of point should be anywhere between (0,0) and (1,1).');
     }
     try {
       await CameraPlatform.instance.setFocusPoint(
         _cameraId,
-        point == null ? null : Point<double>(point.dx, point.dy),
+        point == null
+            ? null
+            : Point<double>(
+                point.dx,
+                point.dy,
+              ),
       );
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
@@ -1158,7 +1053,8 @@ class CameraController extends ValueNotifier<CameraValue> {
   }
 
   /// Check whether the camera platform supports image streaming.
-  bool supportsImageStreaming() => CameraPlatform.instance.supportsImageStreaming();
+  bool supportsImageStreaming() =>
+      CameraPlatform.instance.supportsImageStreaming();
 
   /// Releases the resources of this camera.
   @override
@@ -1166,7 +1062,7 @@ class CameraController extends ValueNotifier<CameraValue> {
     if (_isDisposed) {
       return;
     }
-    unawaited(_deviceOrientationSubscription?.cancel());
+    _unawaited(_deviceOrientationSubscription?.cancel());
     _isDisposed = true;
     super.dispose();
     if (_initializeFuture != null) {
@@ -1211,7 +1107,13 @@ class Optional<T> extends IterableBase<T> {
   const Optional.absent() : _value = null;
 
   /// Constructs an Optional of the given [value].
-  const Optional.of(T value) : _value = value;
+  ///
+  /// Throws [ArgumentError] if [value] is null.
+  Optional.of(T value) : _value = value {
+    // TODO(cbracken): Delete and make this ctor const once mixed-mode
+    // execution is no longer around.
+    ArgumentError.checkNotNull(value);
+  }
 
   /// Constructs an Optional of the given [value].
   ///
@@ -1268,7 +1170,9 @@ class Optional<T> extends IterableBase<T> {
   ///
   /// The transformer must not return `null`. If it does, an [ArgumentError] is thrown.
   Optional<S> transform<S>(S Function(T value) transformer) {
-    return _value == null ? Optional<S>.absent() : Optional<S>.of(transformer(_value));
+    return _value == null
+        ? Optional<S>.absent()
+        : Optional<S>.of(transformer(_value));
   }
 
   /// Transforms the Optional value.
@@ -1277,11 +1181,14 @@ class Optional<T> extends IterableBase<T> {
   ///
   /// Returns [absent()] if the transformer returns `null`.
   Optional<S> transformNullable<S>(S? Function(T value) transformer) {
-    return _value == null ? Optional<S>.absent() : Optional<S>.fromNullable(transformer(_value));
+    return _value == null
+        ? Optional<S>.absent()
+        : Optional<S>.fromNullable(transformer(_value));
   }
 
   @override
-  Iterator<T> get iterator => isPresent ? <T>[_value as T].iterator : Iterable<T>.empty().iterator;
+  Iterator<T> get iterator =>
+      isPresent ? <T>[_value as T].iterator : Iterable<T>.empty().iterator;
 
   /// Delegates to the underlying [value] hashCode.
   @override
@@ -1293,6 +1200,8 @@ class Optional<T> extends IterableBase<T> {
 
   @override
   String toString() {
-    return _value == null ? 'Optional { absent }' : 'Optional { value: $_value }';
+    return _value == null
+        ? 'Optional { absent }'
+        : 'Optional { value: $_value }';
   }
 }
