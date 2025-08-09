@@ -50,6 +50,12 @@ enum PlatformFlashMode { off, auto, always, torch }
 // Pigeon version of FocusMode.
 enum PlatformFocusMode { auto, locked }
 
+// Pigeon version of WhiteBalanceMode.
+enum PlatformWhiteBalanceMode {
+  auto,
+  locked,
+}
+
 /// Pigeon version of ImageFileFormat.
 enum PlatformImageFileFormat { jpeg, heif }
 
@@ -85,6 +91,7 @@ class PlatformCameraState {
     required this.previewSize,
     required this.exposureMode,
     required this.focusMode,
+    required this.whiteBalanceMode,
     required this.exposurePointSupported,
     required this.focusPointSupported,
   });
@@ -97,6 +104,9 @@ class PlatformCameraState {
 
   /// The default focus mode
   final PlatformFocusMode focusMode;
+
+  /// The default white balance mode
+  final PlatformWhiteBalanceMode whiteBalanceMode;
 
   /// Whether setting exposure points is supported.
   final bool exposurePointSupported;
@@ -342,6 +352,29 @@ abstract class CameraApi {
   @async
   @ObjCSelector('getMaxIso')
   int getMaxIso();
+
+  /// Switches the camera to the given white balance mode.
+  @async
+  @ObjCSelector('setWhiteBalanceMode:')
+  void setWhiteBalanceMode(PlatformWhiteBalanceMode mode);
+
+  /// Sets the manual color temperature in Kelvin.
+  ///
+  /// This should only be used when white balance mode is locked.
+  /// Color temperature typically ranges from 2000K to 8000K.
+  @async
+  @ObjCSelector('setManualColorTemperature:')
+  void setManualColorTemperature(int colorTemperature);
+
+  /// Returns the minimum supported color temperature in Kelvin.
+  @async
+  @ObjCSelector('getMinColorTemperature')
+  int getMinColorTemperature();
+
+  /// Returns the maximum supported color temperature in Kelvin.
+  @async
+  @ObjCSelector('getMaxColorTemperature')
+  int getMaxColorTemperature();
 
   /// Returns the minimum zoom level supported by the camera.
   @async

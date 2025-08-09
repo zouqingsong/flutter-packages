@@ -464,6 +464,26 @@ class AVFoundationCamera extends CameraPlatform {
   }
 
   @override
+  Future<void> setWhiteBalanceMode(int cameraId, WhiteBalanceMode mode) async {
+    await _hostApi.setWhiteBalanceMode(_pigeonWhiteBalanceMode(mode));
+  }
+
+  @override
+  Future<void> setManualColorTemperature(int cameraId, int colorTemperature) async {
+    await _hostApi.setManualColorTemperature(colorTemperature);
+  }
+
+  @override
+  Future<int> getMinColorTemperature(int cameraId) async {
+    return _hostApi.getMinColorTemperature();
+  }
+
+  @override
+  Future<int> getMaxColorTemperature(int cameraId) async {
+    return _hostApi.getMaxColorTemperature();
+  }
+
+  @override
   Widget buildPreview(int cameraId) {
     return Texture(textureId: cameraId);
   }
@@ -500,6 +520,23 @@ class AVFoundationCamera extends CameraPlatform {
     // switch as needing an update.
     // ignore: dead_code
     return PlatformExposureMode.auto;
+  }
+
+  /// Returns a [WhiteBalanceMode]'s Pigeon representation.
+  PlatformWhiteBalanceMode _pigeonWhiteBalanceMode(WhiteBalanceMode mode) {
+    switch (mode) {
+      case WhiteBalanceMode.locked:
+        return PlatformWhiteBalanceMode.locked;
+      case WhiteBalanceMode.auto:
+        return PlatformWhiteBalanceMode.auto;
+    }
+    // The enum comes from a different package, which could get a new value at
+    // any time, so provide a fallback that ensures this won't break when used
+    // with a version that contains new values. This is deliberately outside
+    // the switch rather than a `default` so that the linter will flag the
+    // switch as needing an update.
+    // ignore: dead_code
+    return PlatformWhiteBalanceMode.auto;
   }
 
   /// Returns a [FlashMode]'s Pigeon representation.

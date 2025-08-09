@@ -312,6 +312,29 @@ abstract class CameraPlatform extends PlatformInterface {
     throw UnimplementedError('getMaxIso() is not implemented.');
   }
 
+  /// Sets the white balance mode for taking pictures.
+  Future<void> setWhiteBalanceMode(int cameraId, WhiteBalanceMode mode) {
+    throw UnimplementedError('setWhiteBalanceMode() is not implemented.');
+  }
+
+  /// Sets the manual color temperature.
+  ///
+  /// Only available when white balance mode is set to locked.
+  /// The [colorTemperature] should be in Kelvin and within the supported range from the camera.
+  Future<void> setManualColorTemperature(int cameraId, int colorTemperature) {
+    throw UnimplementedError('setManualColorTemperature() is not implemented.');
+  }
+
+  /// Gets the minimum supported color temperature in Kelvin.
+  Future<int> getMinColorTemperature(int cameraId) {
+    throw UnimplementedError('getMinColorTemperature() is not implemented.');
+  }
+
+  /// Gets the maximum supported color temperature in Kelvin.
+  Future<int> getMaxColorTemperature(int cameraId) {
+    throw UnimplementedError('getMaxColorTemperature() is not implemented.');
+  }
+
   /// Gets the maximum supported zoom level for the selected camera.
   Future<double> getMaxZoomLevel(int cameraId) {
     throw UnimplementedError('getMaxZoomLevel() is not implemented.');

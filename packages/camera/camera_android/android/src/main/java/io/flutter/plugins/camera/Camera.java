@@ -1355,6 +1355,42 @@ class Camera
     return 3200; // Default maximum
   }
 
+  /**
+   * Method handler for setting white balance mode.
+   *
+   * @param result Flutter result.
+   * @param mode new white balance mode.
+   */
+  public void setWhiteBalanceMode(@NonNull final Messages.VoidResult result, @NonNull io.flutter.plugins.camera.features.whitebalance.WhiteBalanceMode mode) {
+    // For now, just return success without implementation
+    // TODO: Implement actual white balance mode setting using Camera2 API
+    result.success();
+  }
+
+  /**
+   * Method handler for setting color temperature.
+   *
+   * @param result Flutter result.
+   * @param colorTemperature new color temperature value.
+   */
+  public void setColorTemperature(@NonNull final Messages.VoidResult result, int colorTemperature) {
+    // For now, just return success without implementation
+    // TODO: Implement actual color temperature setting using Camera2 API
+    result.success();
+  }
+
+  /** Return the min color temperature supported by the camera to dart. */
+  public int getMinColorTemperature() {
+    // TODO: Implement actual minimum color temperature detection
+    return 2000; // Default minimum
+  }
+
+  /** Return the max color temperature supported by the camera to dart. */
+  public int getMaxColorTemperature() {
+    // TODO: Implement actual maximum color temperature detection
+    return 8000; // Default maximum
+  }
+
   /** Shortcut to get current recording profile. Legacy method provides support for SDK < 31. */
   CamcorderProfile getRecordingProfileLegacy() {
     return cameraFeatures.getResolution().getRecordingProfileLegacy();

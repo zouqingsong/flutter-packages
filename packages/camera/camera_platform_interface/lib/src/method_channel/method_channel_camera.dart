@@ -448,6 +448,46 @@ class MethodChannelCamera extends CameraPlatform {
   }
 
   @override
+  Future<void> setWhiteBalanceMode(int cameraId, WhiteBalanceMode mode) =>
+      _channel.invokeMethod<void>(
+        'setWhiteBalanceMode',
+        <String, dynamic>{
+          'cameraId': cameraId,
+          'mode': serializeWhiteBalanceMode(mode),
+        },
+      );
+
+  @override
+  Future<void> setManualColorTemperature(int cameraId, int colorTemperature) =>
+      _channel.invokeMethod<void>(
+        'setManualColorTemperature',
+        <String, dynamic>{
+          'cameraId': cameraId,
+          'colorTemperature': colorTemperature,
+        },
+      );
+
+  @override
+  Future<int> getMinColorTemperature(int cameraId) async {
+    final int? minColorTemperature = await _channel.invokeMethod<int>(
+      'getMinColorTemperature',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+
+    return minColorTemperature!;
+  }
+
+  @override
+  Future<int> getMaxColorTemperature(int cameraId) async {
+    final int? maxColorTemperature = await _channel.invokeMethod<int>(
+      'getMaxColorTemperature',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+
+    return maxColorTemperature!;
+  }
+
+  @override
   Future<void> pausePreview(int cameraId) async {
     await _channel.invokeMethod<double>('pausePreview', <String, dynamic>{'cameraId': cameraId});
   }
