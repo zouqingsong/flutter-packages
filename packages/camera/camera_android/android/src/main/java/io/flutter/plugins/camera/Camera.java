@@ -19,6 +19,7 @@ import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.OutputConfiguration;
+import android.hardware.camera2.params.RggbChannelVector;
 import android.hardware.camera2.params.SessionConfiguration;
 import android.media.CamcorderProfile;
 import android.media.EncoderProfiles;
@@ -1364,9 +1365,39 @@ class Camera
    * @param mode new white balance mode.
    */
   public void setWhiteBalanceMode(@NonNull final Messages.VoidResult result, @NonNull io.flutter.plugins.camera.features.whitebalance.WhiteBalanceMode mode) {
-    // For now, just return success without implementation
-    // TODO: Implement actual white balance mode setting using Camera2 API
-    result.success();
+    try {
+      // Set the white balance mode in the camera features
+      cameraFeatures.getWhiteBalance().setValue(mode);
+      
+      // Apply the appropriate Camera2 API settings based on the mode
+      if (mode == io.flutter.plugins.camera.features.whitebalance.WhiteBalanceMode.auto) {
+        // Restore auto white balance
+        previewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
+        previewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_FAST);
+        
+        // Clear any manual color correction gains that were set for color temperature
+        previewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, null);
+        
+        Log.d(TAG, "White balance set to AUTO mode");
+      } else if (mode == io.flutter.plugins.camera.features.whitebalance.WhiteBalanceMode.locked) {
+        // Manual white balance mode - this will be used when setting color temperature
+        previewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF);
+        previewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX);
+        
+        Log.d(TAG, "White balance set to LOCKED mode");
+      }
+      
+      updateBuilderSettings(previewRequestBuilder);
+      refreshPreviewCaptureSession(
+          () -> {
+            Log.d(TAG, "White balance mode set to " + mode + " successfully");
+            result.success();
+          },
+          (errorCode, errorMessage) -> result.error(new Messages.FlutterError("setWhiteBalanceModeError", errorMessage, null))
+      );
+    } catch (Exception e) {
+      result.error(new Messages.FlutterError("setWhiteBalanceModeError", e.getMessage(), null));
+    }
   }
 
   /**
@@ -1377,14 +1408,27 @@ class Camera
    */
   public void setColorTemperature(@NonNull final Messages.VoidResult result, int colorTemperature) {
     try {
-      // Set white balance mode to locked to enable manual control
-      cameraFeatures.getWhiteBalance().setValue(WhiteBalanceMode.locked);
-      // Note: Android Camera2 API doesn't directly support setting color temperature
-      // This would typically require using CONTROL_AWB_MODE_OFF and manual RGB gains
-      // For now, we set the white balance to locked mode
+      // First ensure white balance mode is set to locked to enable manual control
+      cameraFeatures.getWhiteBalance().setValue(io.flutter.plugins.camera.features.whitebalance.WhiteBalanceMode.locked);
+      
+      // Convert Kelvin temperature to RGB gains using proven algorithm from Xamarin implementation
+      float[] gains = convertKelvinToRgbGains(colorTemperature);
+      
+      // Apply the color temperature using Camera2 API
+      previewRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF);
+      previewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX);
+      
+      // Create RggbChannelVector from the calculated gains
+      android.hardware.camera2.params.RggbChannelVector rggbGains = 
+          new android.hardware.camera2.params.RggbChannelVector(gains[0], gains[1], gains[2], gains[3]);
+      previewRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, rggbGains);
+      
       updateBuilderSettings(previewRequestBuilder);
       refreshPreviewCaptureSession(
-          () -> result.success(),
+          () -> {
+            Log.d(TAG, "Color temperature set to " + colorTemperature + "K successfully");
+            result.success();
+          },
           (errorCode, errorMessage) -> result.error(new Messages.FlutterError("setColorTemperatureError", errorMessage, null))
       );
     } catch (Exception e) {
@@ -1392,17 +1436,86 @@ class Camera
     }
   }
 
+  /**
+   * Converts color temperature in Kelvin to RGB gains for Camera2 API.
+   * Algorithm adapted from proven Xamarin implementation.
+   * Note: Inverted to match iOS behavior where higher values = warmer colors
+   * 
+   * @param kelvin Color temperature in Kelvin (typically 2000-8000K)
+   * @return float array with RGGB gains [red, green, green, blue]
+   */
+  private float[] convertKelvinToRgbGains(int kelvin) {
+    // Invert the temperature to match iOS behavior: higher input = warmer colors
+    // Map input range (2000-8000K) to inverted range (8000-2000K)
+    int invertedKelvin = 10000 - kelvin;
+    // Clamp to valid range
+    invertedKelvin = Math.max(2000, Math.min(8000, invertedKelvin));
+    
+    float temperature = invertedKelvin / 100.0f;
+    float red, green, blue;
+
+    // Calculate red using the inverted temperature
+    if (temperature <= 66) {
+      red = 255;
+    } else {
+      red = temperature - 60;
+      red = (float)(329.698727446 * Math.pow(red, -0.1332047592));
+      red = Math.max(0, Math.min(255, red));
+    }
+
+    // Calculate green using the inverted temperature
+    if (temperature <= 66) {
+      green = temperature;
+      green = (float)(99.4708025861 * Math.log(green) - 161.1195681661);
+    } else {
+      green = temperature - 60;
+      green = (float)(288.1221695283 * Math.pow(green, -0.0755148492));
+    }
+    green = Math.max(0, Math.min(255, green));
+
+    // Calculate blue using the inverted temperature
+    if (temperature >= 66) {
+      blue = 255;
+    } else if (temperature <= 19) {
+      blue = 0;
+    } else {
+      blue = temperature - 10;
+      blue = (float)(138.5177312231 * Math.log(blue) - 305.0447927307);
+      blue = Math.max(0, Math.min(255, blue));
+    }
+
+    // Convert to normalized gains (0-1 range) and create RGGB array
+    // Note: RGGB format means Red, Green, Green, Blue (two green channels)
+    return new float[] {
+        (red / 255.0f) * 2.0f,    // Red gain
+        (green / 255.0f),         // Green gain
+        (green / 255.0f),         // Green gain (duplicate)
+        (blue / 255.0f) * 2.0f    // Blue gain
+    };
+  }
+
   /** Return the min color temperature supported by the camera to dart. */
   public int getMinColorTemperature() {
-    // Most Android cameras support a range from about 2000K to 8000K
-    // This is a reasonable default range
+    // Camera2 API doesn't expose color temperature ranges directly
+    // We could potentially detect device capabilities by testing ColorCorrectionGains,
+    // but that would require active camera session and is complex.
+    
+    // For now, use conservative range that works on most devices:
+    // - Budget phones: ~2700K - 6500K  
+    // - Flagship phones: ~2000K - 8000K
+    // - Professional cameras: ~2000K - 10000K+
+    
+    // TODO: Implement dynamic range detection based on device capabilities
     return 2000;
   }
 
   /** Return the max color temperature supported by the camera to dart. */
   public int getMaxColorTemperature() {
-    // Most Android cameras support a range from about 2000K to 8000K
-    // This is a reasonable default range
+    // Camera2 API doesn't expose color temperature ranges directly
+    // Using conservative 8000K limit that should work on most Android devices
+    // to avoid invalid ColorCorrectionGains that could cause capture failures
+    
+    // TODO: Implement dynamic range detection based on device capabilities  
     return 8000;
   }
 

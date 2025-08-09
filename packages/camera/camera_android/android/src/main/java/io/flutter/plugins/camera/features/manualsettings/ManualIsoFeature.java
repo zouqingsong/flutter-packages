@@ -13,7 +13,7 @@ import io.flutter.plugins.camera.features.CameraFeature;
 
 /** Controls the manual ISO sensitivity for the camera. */
 public class ManualIsoFeature extends CameraFeature<Integer> {
-  private int currentSetting = 100; // Default ISO value
+  private int currentSetting = 0; // 0 means not set (use auto ISO)
 
   /**
    * Creates a new instance of the {@link ManualIsoFeature}.
