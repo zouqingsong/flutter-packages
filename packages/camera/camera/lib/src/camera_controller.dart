@@ -222,6 +222,7 @@ class CameraValue {
         'flashMode: $flashMode, '
         'exposureMode: $exposureMode, '
         'focusMode: $focusMode, '
+        'whiteBalanceMode: $whiteBalanceMode, '
         'exposurePointSupported: $exposurePointSupported, '
         'focusPointSupported: $focusPointSupported, '
         'deviceOrientation: $deviceOrientation, '
