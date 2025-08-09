@@ -401,6 +401,35 @@ final class CameraApiImpl implements Messages.CameraApi {
   }
 
   @Override
+  public void setWhiteBalanceMode(@NonNull Messages.PlatformWhiteBalanceMode whiteBalanceMode, @NonNull Messages.VoidResult result) {
+    io.flutter.plugins.camera.features.whitebalance.WhiteBalanceMode mode = CameraUtils.whiteBalanceModeFromPigeon(whiteBalanceMode);
+    try {
+      camera.setWhiteBalanceMode(result, mode);
+    } catch (Exception e) {
+      handleException(e, result);
+    }
+  }
+
+  @Override
+  public void setColorTemperature(@NonNull Long colorTemperature, @NonNull Messages.VoidResult result) {
+    try {
+      camera.setColorTemperature(result, colorTemperature.intValue());
+    } catch (Exception e) {
+      handleException(e, result);
+    }
+  }
+
+  @Override
+  public @NonNull Long getMinColorTemperature() {
+    return (long) camera.getMinColorTemperature();
+  }
+
+  @Override
+  public @NonNull Long getMaxColorTemperature() {
+    return (long) camera.getMaxColorTemperature();
+  }
+
+  @Override
   public void dispose() {
     if (camera != null) {
       camera.dispose();

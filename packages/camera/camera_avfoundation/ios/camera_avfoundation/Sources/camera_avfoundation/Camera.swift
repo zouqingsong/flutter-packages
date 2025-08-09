@@ -125,6 +125,21 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
   /// Gets the maximum supported ISO value.
   func getMaxIso() -> Int
 
+  /// Sets the white balance mode.
+  /// @param mode The white balance mode to apply.
+  func setWhiteBalanceMode(_ mode: PlatformWhiteBalanceMode,
+    withCompletion: @escaping (_ error: FlutterError?) -> Void)
+
+  /// Sets manual color temperature.
+  /// @param colorTemperature Color temperature in Kelvin.
+  func setManualColorTemperature(_ colorTemperature: Int)
+
+  /// Gets the minimum supported color temperature in Kelvin.
+  func getMinColorTemperature() -> Int
+
+  /// Gets the maximum supported color temperature in Kelvin.
+  func getMaxColorTemperature() -> Int
+
   func setZoomLevel(_ zoom: CGFloat, withCompletion: @escaping (Result<Void, any Error>) -> Void)
 
   func setVideoStabilizationMode(

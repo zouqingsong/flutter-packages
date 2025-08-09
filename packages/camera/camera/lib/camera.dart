@@ -14,6 +14,7 @@ export 'package:camera_platform_interface/camera_platform_interface.dart'
         ImageFormatGroup,
         ResolutionPreset,
         VideoStabilizationMode,
+        WhiteBalanceMode,
         XFile;
 
 export 'src/camera_controller.dart';

@@ -397,12 +397,14 @@ class CameraController extends ValueNotifier<CameraValue> {
 
   /// Sets the flash mode for taking pictures.
   Future<void> setFlashMode(FlashMode mode) async {
+    print('setFlashMode00: $mode');
     await CameraPlatform.instance.setFlashMode(_cameraId, mode);
     value = value.copyWith(flashMode: mode);
   }
 
   /// Sets the exposure mode for taking pictures.
   Future<void> setExposureMode(ExposureMode mode) async {
+    print('setExposureMode00: $mode');
     await CameraPlatform.instance.setExposureMode(_cameraId, mode);
     value = value.copyWith(exposureMode: mode);
   }

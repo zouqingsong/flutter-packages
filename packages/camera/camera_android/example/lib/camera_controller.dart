@@ -23,6 +23,7 @@ class CameraValue {
     required this.flashMode,
     required this.exposureMode,
     required this.focusMode,
+    required this.whiteBalanceMode,
     required this.deviceOrientation,
     required this.description,
     this.lockedCaptureOrientation,
@@ -42,6 +43,7 @@ class CameraValue {
         flashMode: FlashMode.auto,
         exposureMode: ExposureMode.auto,
         focusMode: FocusMode.auto,
+        whiteBalanceMode: WhiteBalanceMode.auto,
         deviceOrientation: DeviceOrientation.portraitUp,
         isPreviewPaused: false,
         description: description,
@@ -82,6 +84,9 @@ class CameraValue {
   /// The focus mode the camera is currently set to.
   final FocusMode focusMode;
 
+  /// The white balance mode the camera is currently set to.
+  final WhiteBalanceMode whiteBalanceMode;
+
   /// The current device UI orientation.
   final DeviceOrientation deviceOrientation;
 
@@ -111,6 +116,7 @@ class CameraValue {
     FlashMode? flashMode,
     ExposureMode? exposureMode,
     FocusMode? focusMode,
+    WhiteBalanceMode? whiteBalanceMode,
     bool? exposurePointSupported,
     bool? focusPointSupported,
     DeviceOrientation? deviceOrientation,
@@ -130,6 +136,7 @@ class CameraValue {
       flashMode: flashMode ?? this.flashMode,
       exposureMode: exposureMode ?? this.exposureMode,
       focusMode: focusMode ?? this.focusMode,
+      whiteBalanceMode: whiteBalanceMode ?? this.whiteBalanceMode,
       deviceOrientation: deviceOrientation ?? this.deviceOrientation,
       lockedCaptureOrientation: lockedCaptureOrientation == null
           ? this.lockedCaptureOrientation
@@ -440,6 +447,30 @@ class CameraController extends ValueNotifier<CameraValue> {
   Future<void> setFocusMode(FocusMode mode) async {
     await CameraPlatform.instance.setFocusMode(_cameraId, mode);
     value = value.copyWith(focusMode: mode);
+  }
+
+  /// Sets the white balance mode for taking pictures.
+  Future<void> setWhiteBalanceMode(WhiteBalanceMode mode) async {
+    await CameraPlatform.instance.setWhiteBalanceMode(_cameraId, mode);
+    value = value.copyWith(whiteBalanceMode: mode);
+  }
+
+  /// Sets the manual color temperature for the camera.
+  ///
+  /// The [colorTemperature] should be in Kelvin and within the supported
+  /// range of the camera. Only available when white balance mode is set to locked.
+  Future<void> setManualColorTemperature(int colorTemperature) async {
+    await CameraPlatform.instance.setManualColorTemperature(_cameraId, colorTemperature);
+  }
+
+  /// Gets the minimum supported color temperature for the camera in Kelvin.
+  Future<int> getMinColorTemperature() async {
+    return CameraPlatform.instance.getMinColorTemperature(_cameraId);
+  }
+
+  /// Gets the maximum supported color temperature for the camera in Kelvin.
+  Future<int> getMaxColorTemperature() async {
+    return CameraPlatform.instance.getMaxColorTemperature(_cameraId);
   }
 
   /// Releases the resources of this camera.

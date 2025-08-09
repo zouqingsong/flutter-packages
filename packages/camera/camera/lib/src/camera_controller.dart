@@ -42,6 +42,7 @@ class CameraValue {
     required this.flashMode,
     required this.exposureMode,
     required this.focusMode,
+    required this.whiteBalanceMode,
     required this.exposurePointSupported,
     required this.focusPointSupported,
     required this.deviceOrientation,
@@ -65,6 +66,7 @@ class CameraValue {
         exposureMode: ExposureMode.auto,
         exposurePointSupported: false,
         focusMode: FocusMode.auto,
+        whiteBalanceMode: WhiteBalanceMode.auto,
         focusPointSupported: false,
         deviceOrientation: DeviceOrientation.portraitUp,
         isPreviewPaused: false,
@@ -125,6 +127,9 @@ class CameraValue {
   /// The focus mode the camera is currently set to.
   final FocusMode focusMode;
 
+  /// The white balance mode the camera is currently set to.
+  final WhiteBalanceMode whiteBalanceMode;
+
   /// Whether setting the exposure point is supported.
   final bool exposurePointSupported;
 
@@ -164,6 +169,7 @@ class CameraValue {
     FlashMode? flashMode,
     ExposureMode? exposureMode,
     FocusMode? focusMode,
+    WhiteBalanceMode? whiteBalanceMode,
     bool? exposurePointSupported,
     bool? focusPointSupported,
     DeviceOrientation? deviceOrientation,
@@ -185,6 +191,7 @@ class CameraValue {
       flashMode: flashMode ?? this.flashMode,
       exposureMode: exposureMode ?? this.exposureMode,
       focusMode: focusMode ?? this.focusMode,
+      whiteBalanceMode: whiteBalanceMode ?? this.whiteBalanceMode,
       exposurePointSupported:
           exposurePointSupported ?? this.exposurePointSupported,
       focusPointSupported: focusPointSupported ?? this.focusPointSupported,
@@ -815,6 +822,7 @@ class CameraController extends ValueNotifier<CameraValue> {
 
   /// Sets the flash mode for taking pictures.
   Future<void> setFlashMode(FlashMode mode) async {
+    _throwIfNotInitialized('setFlashMode');
     try {
       await CameraPlatform.instance.setFlashMode(_cameraId, mode);
       value = value.copyWith(flashMode: mode);
@@ -825,6 +833,7 @@ class CameraController extends ValueNotifier<CameraValue> {
 
   /// Sets the exposure mode for taking pictures.
   Future<void> setExposureMode(ExposureMode mode) async {
+    _throwIfNotInitialized('setExposureMode');
     try {
       await CameraPlatform.instance.setExposureMode(_cameraId, mode);
       value = value.copyWith(exposureMode: mode);
@@ -838,6 +847,7 @@ class CameraController extends ValueNotifier<CameraValue> {
   /// Supplying a `null` value will reset the exposure point to it's default
   /// value.
   Future<void> setExposurePoint(Offset? point) async {
+    _throwIfNotInitialized('setExposurePoint');
     if (point != null &&
         (point.dx < 0 || point.dx > 1 || point.dy < 0 || point.dy > 1)) {
       throw ArgumentError(
@@ -953,6 +963,7 @@ class CameraController extends ValueNotifier<CameraValue> {
 
   /// Sets the focus mode for taking pictures.
   Future<void> setFocusMode(FocusMode mode) async {
+    _throwIfNotInitialized('setFocusMode');
     try {
       await CameraPlatform.instance.setFocusMode(_cameraId, mode);
       value = value.copyWith(focusMode: mode);
@@ -978,6 +989,7 @@ class CameraController extends ValueNotifier<CameraValue> {
   /// Supplying a `null` value will reset the focus point to it's default
   /// value.
   Future<void> setFocusPoint(Offset? point) async {
+    _throwIfNotInitialized('setFocusPoint');
     if (point != null &&
         (point.dx < 0 || point.dx > 1 || point.dy < 0 || point.dy > 1)) {
       throw ArgumentError(
@@ -1107,6 +1119,56 @@ class CameraController extends ValueNotifier<CameraValue> {
     _throwIfNotInitialized('getMaxIso');
     try {
       return CameraPlatform.instance.getMaxIso(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Sets the white balance mode for taking pictures.
+  Future<void> setWhiteBalanceMode(WhiteBalanceMode mode) async {
+    _throwIfNotInitialized('setWhiteBalanceMode');
+    try {
+      await CameraPlatform.instance.setWhiteBalanceMode(_cameraId, mode);
+      value = value.copyWith(whiteBalanceMode: mode);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Sets the manual color temperature for the camera.
+  ///
+  /// The [colorTemperature] should be in Kelvin and within the supported
+  /// range of the camera. Only available when white balance mode is set to locked.
+  ///
+  /// Throws a [CameraException] if the operation fails or if manual white balance
+  /// is not supported.
+  Future<void> setManualColorTemperature(int colorTemperature) async {
+    _throwIfNotInitialized('setManualColorTemperature');
+    if (colorTemperature <= 0) {
+      throw ArgumentError('Color temperature should be greater than 0.');
+    }
+    try {
+      await CameraPlatform.instance.setManualColorTemperature(_cameraId, colorTemperature);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the minimum supported color temperature for the camera in Kelvin.
+  Future<int> getMinColorTemperature() async {
+    _throwIfNotInitialized('getMinColorTemperature');
+    try {
+      return CameraPlatform.instance.getMinColorTemperature(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the maximum supported color temperature for the camera in Kelvin.
+  Future<int> getMaxColorTemperature() async {
+    _throwIfNotInitialized('getMaxColorTemperature');
+    try {
+      return CameraPlatform.instance.getMaxColorTemperature(_cameraId);
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }

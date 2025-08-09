@@ -41,6 +41,12 @@ enum PlatformExposureMode { auto, locked }
 /// Pigeon equivalent of [FocusMode].
 enum PlatformFocusMode { auto, locked }
 
+/// Pigeon equivalent of [WhiteBalanceMode].
+enum PlatformWhiteBalanceMode {
+  auto,
+  locked,
+}
+
 /// Data needed for [CameraInitializedEvent].
 class PlatformCameraState {
   PlatformCameraState({
@@ -219,6 +225,20 @@ abstract class CameraApi {
 
   /// Returns the maximum supported ISO sensitivity.
   int getMaxIso();
+
+  /// Sets the white balance mode of the camera with the given ID.
+  @async
+  void setWhiteBalanceMode(PlatformWhiteBalanceMode whiteBalanceMode);
+
+  /// Sets the manual color temperature for white balance.
+  @async
+  void setColorTemperature(int colorTemperature);
+
+  /// Returns the minimum supported color temperature.
+  int getMinColorTemperature();
+
+  /// Returns the maximum supported color temperature.
+  int getMaxColorTemperature();
 
   /// Returns the maximum zoom level of the camera with the given ID.
   double getMaxZoomLevel();

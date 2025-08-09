@@ -64,6 +64,8 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
   late Animation<double> _exposureModeControlRowAnimation;
   late AnimationController _focusModeControlRowAnimationController;
   late Animation<double> _focusModeControlRowAnimation;
+  late AnimationController _whiteBalanceControlRowAnimationController;
+  late Animation<double> _whiteBalanceControlRowAnimation;
   double _minAvailableZoom = 1.0;
   double _maxAvailableZoom = 1.0;
   double _currentScale = 1.0;
@@ -101,6 +103,14 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       parent: _focusModeControlRowAnimationController,
       curve: Curves.easeInCubic,
     );
+    _whiteBalanceControlRowAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _whiteBalanceControlRowAnimation = CurvedAnimation(
+      parent: _whiteBalanceControlRowAnimationController,
+      curve: Curves.easeInCubic,
+    );
   }
 
   @override
@@ -108,6 +118,8 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     WidgetsBinding.instance.removeObserver(this);
     _flashModeControlRowAnimationController.dispose();
     _exposureModeControlRowAnimationController.dispose();
+    _focusModeControlRowAnimationController.dispose();
+    _whiteBalanceControlRowAnimationController.dispose();
     super.dispose();
   }
 
@@ -315,6 +327,7 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         _flashModeControlRowWidget(),
         _exposureModeControlRowWidget(),
         _focusModeControlRowWidget(),
+        _whiteBalanceModeControlRowWidget(),
       ],
     );
   }
@@ -500,6 +513,84 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
                   ),
                 ],
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Display the white balance mode toggle.
+  Widget _whiteBalanceModeControlRowWidget() {
+    final ButtonStyle styleAuto = TextButton.styleFrom(
+      foregroundColor: controller?.value.whiteBalanceMode == WhiteBalanceMode.auto
+          ? Colors.orange
+          : Colors.blue,
+    );
+    final ButtonStyle styleLocked = TextButton.styleFrom(
+      foregroundColor: controller?.value.whiteBalanceMode == WhiteBalanceMode.locked
+          ? Colors.orange
+          : Colors.blue,
+    );
+
+    return SizeTransition(
+      sizeFactor: _whiteBalanceControlRowAnimation,
+      child: ClipRect(
+        child: Container(
+          color: Colors.grey.shade50,
+          child: Column(
+            children: <Widget>[
+              const Center(
+                child: Text('White Balance Mode'),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  TextButton(
+                    style: styleAuto,
+                    onPressed: controller != null
+                        ? () => onSetWhiteBalanceModeButtonPressed(WhiteBalanceMode.auto)
+                        : null,
+                    child: const Text('AUTO'),
+                  ),
+                  TextButton(
+                    style: styleLocked,
+                    onPressed: controller != null
+                        ? () => onSetWhiteBalanceModeButtonPressed(WhiteBalanceMode.locked)
+                        : null,
+                    child: const Text('LOCKED'),
+                  ),
+                ],
+              ),
+              if (controller?.value.whiteBalanceMode == WhiteBalanceMode.locked) ...[
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('Color Temperature (K)'),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: <Widget>[
+                    TextButton(
+                      onPressed: controller != null
+                          ? () => onSetColorTemperatureButtonPressed(3000)
+                          : null,
+                      child: const Text('3000K\n(Tungsten)'),
+                    ),
+                    TextButton(
+                      onPressed: controller != null
+                          ? () => onSetColorTemperatureButtonPressed(5500)
+                          : null,
+                      child: const Text('5500K\n(Daylight)'),
+                    ),
+                    TextButton(
+                      onPressed: controller != null
+                          ? () => onSetColorTemperatureButtonPressed(7000)
+                          : null,
+                      child: const Text('7000K\n(Shade)'),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -821,6 +912,24 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
     });
   }
 
+  void onSetWhiteBalanceModeButtonPressed(WhiteBalanceMode mode) {
+    setWhiteBalanceMode(mode).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+      showInSnackBar('White balance mode set to ${mode.toString().split('.').last}');
+    });
+  }
+
+  void onSetColorTemperatureButtonPressed(int temperature) {
+    setColorTemperature(temperature).then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+      showInSnackBar('Color temperature set to ${temperature}K');
+    });
+  }
+
   void onVideoRecordButtonPressed() {
     startVideoRecording().then((_) {
       if (mounted) {
@@ -994,6 +1103,32 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
     try {
       await controller!.setFocusMode(mode);
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      rethrow;
+    }
+  }
+
+  Future<void> setWhiteBalanceMode(WhiteBalanceMode mode) async {
+    if (controller == null) {
+      return;
+    }
+
+    try {
+      await controller!.setWhiteBalanceMode(mode);
+    } on CameraException catch (e) {
+      _showCameraException(e);
+      rethrow;
+    }
+  }
+
+  Future<void> setColorTemperature(int temperature) async {
+    if (controller == null) {
+      return;
+    }
+
+    try {
+      await controller!.setManualColorTemperature(temperature);
     } on CameraException catch (e) {
       _showCameraException(e);
       rethrow;

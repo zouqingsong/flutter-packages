@@ -22,6 +22,8 @@ public final class CameraPlugin: NSObject, FlutterPlugin {
   var camera: Camera?
 
   public static func register(with registrar: FlutterPluginRegistrar) {
+    NSLog("🔥🔥🔥 CameraPlugin.register called - registering method channel")
+    
     let instance = CameraPlugin(
       registry: registrar.textures(),
       messenger: registrar.messenger(),
@@ -124,6 +126,7 @@ extension CameraPlugin: CameraApi {
   func getAvailableCameras(
     completion: @escaping (Result<[PlatformCameraDescription], any Error>) -> Void
   ) {
+    NSLog("🔥🔥🔥 NATIVE: CameraPlugin.availableCameras called")
     captureSessionQueue.async { [weak self] in
       guard let strongSelf = self else { return }
 
@@ -420,6 +423,7 @@ extension CameraPlugin: CameraApi {
   func setExposureMode(
     mode: PlatformExposureMode, completion: @escaping (Result<Void, any Error>) -> Void
   ) {
+    NSLog("🔥🔥🔥 NATIVE: CameraPlugin.setExposureMode called with \(mode == .auto ? "auto" : "locked")")
     captureSessionQueue.async { [weak self] in
       self?.camera?.setExposureMode(mode)
       completion(.success(()))
@@ -578,6 +582,7 @@ extension CameraPlugin: CameraApi {
   }
 
   public func setManualExposureTime(_ exposureTime: Int, completion: @escaping (FlutterError?) -> Void) {
+    NSLog("🔥🔥🔥 CameraPlugin.setManualExposureTime called with exposureTime=\(exposureTime)")
     captureSessionQueue.async { [weak self] in
       self?.camera?.setManualExposureTime(exposureTime)
       completion(nil)
@@ -599,6 +604,7 @@ extension CameraPlugin: CameraApi {
   }
 
   public func setManualIso(_ iso: Int, completion: @escaping (FlutterError?) -> Void) {
+    NSLog("🔥🔥🔥 CameraPlugin.setManualIso called with iso=\(iso)")
     captureSessionQueue.async { [weak self] in
       self?.camera?.setManualIso(iso)
       completion(nil)
@@ -616,6 +622,122 @@ extension CameraPlugin: CameraApi {
     captureSessionQueue.async { [weak self] in
       let maxIso = self?.camera?.getMaxIso() ?? 3200
       completion(NSNumber(value: maxIso), nil)
+    }
+  }
+
+  public func setWhiteBalanceMode(
+    _ mode: FCPPlatformWhiteBalanceMode,
+    completion: @escaping (FlutterError?) -> Void
+  ) {
+    NSLog("🔥🔥🔥 CameraPlugin.setWhiteBalanceMode called with \(mode == .auto ? "auto" : "locked")")
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setWhiteBalanceMode(mode, withCompletion: completion)
+    }
+  }
+
+  public func setManualColorTemperature(_ colorTemperature: Int, completion: @escaping (FlutterError?) -> Void) {
+    NSLog("🔥🔥🔥 CameraPlugin.setManualColorTemperature called with colorTemperature=\(colorTemperature)K")
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setManualColorTemperature(colorTemperature)
+      completion(nil)
+    }
+  }
+
+  public func getMinColorTemperature(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let minColorTemp = self?.camera?.getMinColorTemperature() ?? 2000
+      completion(NSNumber(value: minColorTemp), nil)
+    }
+  }
+
+  public func getMaxColorTemperature(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let maxColorTemp = self?.camera?.getMaxColorTemperature() ?? 8000
+      completion(NSNumber(value: maxColorTemp), nil)
+    }
+  }
+  
+  // MARK: - Method Channel Bridge
+  
+  public func handleMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    NSLog("🔥🔥🔥 CameraPlugin.handleMethodCall: \(call.method)")
+    
+    switch call.method {
+    case "setWhiteBalanceMode":
+      handleSetWhiteBalanceMode(call, result: result)
+    case "setManualColorTemperature":
+      handleSetManualColorTemperature(call, result: result)
+    case "getMinColorTemperature":
+      handleGetMinColorTemperature(call, result: result)
+    case "getMaxColorTemperature":
+      handleGetMaxColorTemperature(call, result: result)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+  
+  private func handleSetWhiteBalanceMode(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let modeString = args["mode"] as? String else {
+      result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid arguments for setWhiteBalanceMode", details: nil))
+      return
+    }
+    
+    let mode: FCPPlatformWhiteBalanceMode
+    switch modeString {
+    case "auto":
+      mode = .auto
+    case "locked":
+      mode = .locked
+    default:
+      result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid white balance mode: \(modeString)", details: nil))
+      return
+    }
+    
+    NSLog("🔥🔥🔥 Method channel setWhiteBalanceMode: \(modeString)")
+    setWhiteBalanceMode(mode) { error in
+      if let error = error {
+        result(error)
+      } else {
+        result(nil)
+      }
+    }
+  }
+  
+  private func handleSetManualColorTemperature(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let colorTemperature = args["colorTemperature"] as? Int else {
+      result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid arguments for setManualColorTemperature", details: nil))
+      return
+    }
+    
+    NSLog("🔥🔥🔥 Method channel setManualColorTemperature: \(colorTemperature)K")
+    setManualColorTemperature(colorTemperature) { error in
+      if let error = error {
+        result(error)
+      } else {
+        result(nil)
+      }
+    }
+  }
+  
+  private func handleGetMinColorTemperature(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    getMinColorTemperature { value, error in
+      if let error = error {
+        result(error)
+      } else {
+        result(value)
+      }
+    }
+  }
+  
+  private func handleGetMaxColorTemperature(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    getMaxColorTemperature { value, error in
+      if let error = error {
+        result(error)
+      } else {
+        result(value)
+      }
     }
   }
 }
