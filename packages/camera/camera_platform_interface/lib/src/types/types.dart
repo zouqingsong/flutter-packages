@@ -5,9 +5,11 @@
 export 'camera_description.dart';
 export 'camera_exception.dart';
 export 'camera_image_data.dart';
+export 'color_effect.dart';
 export 'exposure_mode.dart';
 export 'flash_mode.dart';
 export 'focus_mode.dart';
+export 'frame_rate_range.dart';
 export 'image_file_format.dart';
 export 'image_format_group.dart';
 export 'media_settings.dart';

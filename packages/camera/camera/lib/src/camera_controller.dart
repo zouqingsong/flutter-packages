@@ -1052,6 +1052,199 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
+  // Frame rate control methods
+
+  /// Sets the frame rate range for the camera.
+  /// 
+  /// The [frameRateRange] specifies the minimum and maximum frame rates
+  /// for video capture and preview.
+  Future<void> setFrameRateRange(FrameRateRange frameRateRange) async {
+    _throwIfNotInitialized('setFrameRateRange');
+    try {
+      await CameraPlatform.instance.setFrameRateRange(_cameraId, frameRateRange);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the current frame rate range for the camera.
+  Future<FrameRateRange> getFrameRateRange() async {
+    _throwIfNotInitialized('getFrameRateRange');
+    try {
+      return CameraPlatform.instance.getFrameRateRange(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the list of supported frame rate ranges for the camera.
+  Future<List<FrameRateRange>> getSupportedFrameRateRanges() async {
+    _throwIfNotInitialized('getSupportedFrameRateRanges');
+    try {
+      return CameraPlatform.instance.getSupportedFrameRateRanges(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  // Video stabilization methods
+
+  /// Sets video stabilization for the camera.
+  /// 
+  /// When [enabled] is true, the camera will attempt to reduce camera shake
+  /// during video recording. This may affect video quality and performance.
+  Future<void> setVideoStabilization(bool enabled) async {
+    _throwIfNotInitialized('setVideoStabilization');
+    try {
+      await CameraPlatform.instance.setVideoStabilization(_cameraId, enabled);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets whether video stabilization is supported by the camera.
+  Future<bool> isVideoStabilizationSupported() async {
+    _throwIfNotInitialized('isVideoStabilizationSupported');
+    try {
+      return CameraPlatform.instance.isVideoStabilizationSupported(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets whether video stabilization is currently enabled for the camera.
+  Future<bool> isVideoStabilizationEnabled() async {
+    _throwIfNotInitialized('isVideoStabilizationEnabled');
+    try {
+      return CameraPlatform.instance.isVideoStabilizationEnabled(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  // Lens properties methods
+
+  /// Gets the lens aperture value for the camera.
+  /// 
+  /// Returns the aperture f-number (e.g., 1.8, 2.4) which indicates how wide
+  /// the lens opening is. Lower numbers mean wider apertures and more light.
+  Future<double> getLensAperture() async {
+    _throwIfNotInitialized('getLensAperture');
+    try {
+      return CameraPlatform.instance.getLensAperture(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the focal length for the camera in millimeters.
+  /// 
+  /// This represents the distance from the lens center to the image sensor
+  /// when focused at infinity. Different cameras may have different focal lengths.
+  Future<double> getFocalLength() async {
+    _throwIfNotInitialized('getFocalLength');
+    try {
+      return CameraPlatform.instance.getFocalLength(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  // Torch level control methods
+
+  /// Sets the torch level for the camera.
+  /// 
+  /// The [level] should be between 0.0 (off) and the value returned by
+  /// [getMaxTorchLevel] (maximum brightness). Use [isTorchLevelSupported]
+  /// to check if variable torch levels are supported.
+  Future<void> setTorchLevel(double level) async {
+    _throwIfNotInitialized('setTorchLevel');
+    if (level < 0.0) {
+      throw ArgumentError('Torch level should be >= 0.0.');
+    }
+    try {
+      await CameraPlatform.instance.setTorchLevel(_cameraId, level);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the current torch level for the camera.
+  Future<double> getTorchLevel() async {
+    _throwIfNotInitialized('getTorchLevel');
+    try {
+      return CameraPlatform.instance.getTorchLevel(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets whether torch level control is supported by the camera.
+  /// 
+  /// Returns true if the camera supports variable torch brightness levels,
+  /// false if it only supports on/off torch control.
+  Future<bool> isTorchLevelSupported() async {
+    _throwIfNotInitialized('isTorchLevelSupported');
+    try {
+      return CameraPlatform.instance.isTorchLevelSupported(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the maximum supported torch level for the camera.
+  /// 
+  /// For devices that don't support variable torch levels, this typically
+  /// returns 1.0. For devices with variable levels, this may return higher
+  /// values like 10.0.
+  Future<double> getMaxTorchLevel() async {
+    _throwIfNotInitialized('getMaxTorchLevel');
+    try {
+      return CameraPlatform.instance.getMaxTorchLevel(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  // Color effect methods
+
+  /// Sets a color effect for the camera.
+  /// 
+  /// Color effects change how the camera processes colors in the preview
+  /// and captured images/videos. Use [getSupportedColorEffects] to get
+  /// the list of supported effects.
+  Future<void> setColorEffect(ColorEffect colorEffect) async {
+    _throwIfNotInitialized('setColorEffect');
+    try {
+      await CameraPlatform.instance.setColorEffect(_cameraId, colorEffect);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the current color effect for the camera.
+  Future<ColorEffect> getColorEffect() async {
+    _throwIfNotInitialized('getColorEffect');
+    try {
+      return CameraPlatform.instance.getColorEffect(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Gets the list of supported color effects for the camera.
+  /// 
+  /// Returns a list of color effects that can be applied to the camera.
+  /// The available effects depend on the camera hardware and platform.
+  Future<List<ColorEffect>> getSupportedColorEffects() async {
+    _throwIfNotInitialized('getSupportedColorEffects');
+    try {
+      return CameraPlatform.instance.getSupportedColorEffects(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
   /// Check whether the camera platform supports image streaming.
   bool supportsImageStreaming() =>
       CameraPlatform.instance.supportsImageStreaming();

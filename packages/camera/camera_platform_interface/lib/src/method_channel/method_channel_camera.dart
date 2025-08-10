@@ -580,6 +580,171 @@ class MethodChannelCamera extends CameraPlatform {
     );
   }
 
+  // Frame rate control methods
+  @override
+  Future<void> setFrameRateRange(int cameraId, FrameRateRange frameRateRange) {
+    return _channel.invokeMethod<void>(
+      'setFrameRateRange',
+      <String, dynamic>{
+        'cameraId': cameraId,
+        'minFrameRate': frameRateRange.minFrameRate,
+        'maxFrameRate': frameRateRange.maxFrameRate,
+      },
+    );
+  }
+
+  @override
+  Future<FrameRateRange> getFrameRateRange(int cameraId) async {
+    final Map<String, Object?> result = 
+        await _channel.invokeMapMethod<String, Object?>(
+      'getFrameRateRange',
+      <String, dynamic>{'cameraId': cameraId},
+    ) ?? <String, Object?>{};
+    
+    return FrameRateRange(
+      result['minFrameRate']! as int,
+      result['maxFrameRate']! as int,
+    );
+  }
+
+  @override
+  Future<List<FrameRateRange>> getSupportedFrameRateRanges(int cameraId) async {
+    final List<Object?> result = await _channel.invokeListMethod<Object?>(
+      'getSupportedFrameRateRanges',
+      <String, dynamic>{'cameraId': cameraId},
+    ) ?? <Object?>[];
+    
+    return result
+        .cast<Map<Object?, Object?>>()
+        .map<FrameRateRange>((Map<Object?, Object?> item) => FrameRateRange(
+              item['minFrameRate']! as int,
+              item['maxFrameRate']! as int,
+            ))
+        .toList();
+  }
+
+  // Video stabilization methods
+  @override
+  Future<void> setVideoStabilization(int cameraId, bool enabled) {
+    return _channel.invokeMethod<void>(
+      'setVideoStabilization',
+      <String, dynamic>{
+        'cameraId': cameraId,
+        'enabled': enabled,
+      },
+    );
+  }
+
+  @override
+  Future<bool> isVideoStabilizationSupported(int cameraId) async {
+    final bool? result = await _channel.invokeMethod<bool>(
+      'isVideoStabilizationSupported',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> isVideoStabilizationEnabled(int cameraId) async {
+    final bool? result = await _channel.invokeMethod<bool>(
+      'isVideoStabilizationEnabled',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+    return result ?? false;
+  }
+
+  // Lens properties methods
+  @override
+  Future<double> getLensAperture(int cameraId) async {
+    final double? result = await _channel.invokeMethod<double>(
+      'getLensAperture',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+    return result ?? 0.0;
+  }
+
+  @override
+  Future<double> getFocalLength(int cameraId) async {
+    final double? result = await _channel.invokeMethod<double>(
+      'getFocalLength',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+    return result ?? 0.0;
+  }
+
+  // Torch level control methods
+  @override
+  Future<void> setTorchLevel(int cameraId, double level) {
+    return _channel.invokeMethod<void>(
+      'setTorchLevel',
+      <String, dynamic>{
+        'cameraId': cameraId,
+        'level': level,
+      },
+    );
+  }
+
+  @override
+  Future<double> getTorchLevel(int cameraId) async {
+    final double? result = await _channel.invokeMethod<double>(
+      'getTorchLevel',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+    return result ?? 0.0;
+  }
+
+  @override
+  Future<bool> isTorchLevelSupported(int cameraId) async {
+    final bool? result = await _channel.invokeMethod<bool>(
+      'isTorchLevelSupported',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+    return result ?? false;
+  }
+
+  @override
+  Future<double> getMaxTorchLevel(int cameraId) async {
+    final double? result = await _channel.invokeMethod<double>(
+      'getMaxTorchLevel',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+    return result ?? 1.0;
+  }
+
+  // Color effect methods
+  @override
+  Future<void> setColorEffect(int cameraId, ColorEffect colorEffect) {
+    return _channel.invokeMethod<void>(
+      'setColorEffect',
+      <String, dynamic>{
+        'cameraId': cameraId,
+        'colorEffect': _serializeColorEffect(colorEffect),
+      },
+    );
+  }
+
+  @override
+  Future<ColorEffect> getColorEffect(int cameraId) async {
+    final String? result = await _channel.invokeMethod<String>(
+      'getColorEffect',
+      <String, dynamic>{'cameraId': cameraId},
+    );
+    return _deserializeColorEffect(result ?? 'none');
+  }
+
+  @override
+  Future<List<ColorEffect>> getSupportedColorEffects(int cameraId) async {
+    final List<Object?> result = await _channel.invokeListMethod<Object?>(
+      'getSupportedColorEffects',
+      <String, dynamic>{'cameraId': cameraId},
+    ) ?? <Object?>[];
+    
+    return result
+        .cast<String>()
+        .map<ColorEffect>(_deserializeColorEffect)
+        .toList();
+  }
+
   @override
   Widget buildPreview(int cameraId) {
     return Texture(textureId: cameraId);
@@ -614,6 +779,56 @@ class MethodChannelCamera extends CameraPlatform {
         return 'medium';
       case ResolutionPreset.low:
         return 'low';
+    }
+  }
+
+  /// Returns the color effect as a String.
+  String _serializeColorEffect(ColorEffect colorEffect) {
+    switch (colorEffect) {
+      case ColorEffect.none:
+        return 'none';
+      case ColorEffect.mono:
+        return 'mono';
+      case ColorEffect.negative:
+        return 'negative';
+      case ColorEffect.solarize:
+        return 'solarize';
+      case ColorEffect.sepia:
+        return 'sepia';
+      case ColorEffect.posterize:
+        return 'posterize';
+      case ColorEffect.whiteboard:
+        return 'whiteboard';
+      case ColorEffect.blackboard:
+        return 'blackboard';
+      case ColorEffect.aqua:
+        return 'aqua';
+    }
+  }
+
+  /// Converts a String to a ColorEffect.
+  ColorEffect _deserializeColorEffect(String colorEffect) {
+    switch (colorEffect) {
+      case 'none':
+        return ColorEffect.none;
+      case 'mono':
+        return ColorEffect.mono;
+      case 'negative':
+        return ColorEffect.negative;
+      case 'solarize':
+        return ColorEffect.solarize;
+      case 'sepia':
+        return ColorEffect.sepia;
+      case 'posterize':
+        return ColorEffect.posterize;
+      case 'whiteboard':
+        return ColorEffect.whiteboard;
+      case 'blackboard':
+        return ColorEffect.blackboard;
+      case 'aqua':
+        return ColorEffect.aqua;
+      default:
+        return ColorEffect.none;
     }
   }
 
