@@ -435,6 +435,76 @@ final class CameraApiImpl implements Messages.CameraApi {
   }
 
   @Override
+  public void setFrameRateRange(@NonNull Long minFrameRate, @NonNull Long maxFrameRate, @NonNull Messages.VoidResult result) {
+    try {
+      Messages.PlatformFrameRateRange frameRateRange = new Messages.PlatformFrameRateRange.Builder()
+        .setMinFrameRate(minFrameRate)
+        .setMaxFrameRate(maxFrameRate)
+        .build();
+      camera.setFrameRateRange(result, frameRateRange);
+    } catch (Exception e) {
+      handleException(e, result);
+    }
+  }
+
+  @Override
+  public @NonNull List<Messages.PlatformFrameRateRange> getSupportedFrameRateRanges() {
+    return camera.getSupportedFrameRateRanges();
+  }
+
+  @Override
+  public void setVideoStabilization(@NonNull Boolean enabled, @NonNull Messages.VoidResult result) {
+    try {
+      camera.setVideoStabilization(result, enabled);
+    } catch (Exception e) {
+      handleException(e, result);
+    }
+  }
+
+  @Override
+  public @NonNull Boolean isVideoStabilizationSupported() {
+    return camera.isVideoStabilizationSupported();
+  }
+
+  @Override
+  public @NonNull Double getLensAperture() {
+    return camera.getLensAperture();
+  }
+
+  @Override
+  public @NonNull Double getFocalLength() {
+    return camera.getFocalLength();
+  }
+
+  @Override
+  public void setTorchLevel(@NonNull Double level, @NonNull Messages.VoidResult result) {
+    try {
+      camera.setTorchLevel(result, level);
+    } catch (Exception e) {
+      handleException(e, result);
+    }
+  }
+
+  @Override
+  public @NonNull Double getMaxTorchLevel() {
+    return camera.getMaxTorchLevel();
+  }
+
+  @Override
+  public void setColorEffect(@NonNull Messages.PlatformColorEffect colorEffect, @NonNull Messages.VoidResult result) {
+    try {
+      camera.setColorEffect(result, colorEffect);
+    } catch (Exception e) {
+      handleException(e, result);
+    }
+  }
+
+  @Override
+  public @NonNull List<Messages.PlatformColorEffect> getSupportedColorEffects() {
+    return camera.getSupportedColorEffects();
+  }
+
+  @Override
   public void dispose() {
     if (camera != null) {
       camera.dispose();

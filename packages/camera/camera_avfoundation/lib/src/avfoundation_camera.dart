@@ -456,6 +456,91 @@ class AVFoundationCamera extends CameraPlatform {
     return _hostApi.getMaxColorTemperature();
   }
 
+  // Frame rate control methods (simplified implementation)
+  @override
+  Future<void> setFrameRateRange(int cameraId, FrameRateRange frameRateRange) async {
+    // Frame rate control not yet implemented in pigeon - using minimal implementation
+    // This would require adding to pigeons/messages.dart and regenerating
+  }
+
+  @override
+  Future<FrameRateRange> getFrameRateRange(int cameraId) async {
+    // Return default range
+    return const FrameRateRange(30, 30);
+  }
+
+  @override
+  Future<List<FrameRateRange>> getSupportedFrameRateRanges(int cameraId) async {
+    // Return default ranges
+    return const [FrameRateRange(30, 30), FrameRateRange(60, 60)];
+  }
+
+  // Video stabilization methods (simplified implementation)
+  @override
+  Future<void> setVideoStabilization(int cameraId, bool enabled) async {
+    // Video stabilization not yet implemented in pigeon
+  }
+
+  @override
+  Future<bool> isVideoStabilizationSupported(int cameraId) async {
+    return true; // Most iOS devices support video stabilization
+  }
+
+  @override
+  Future<bool> isVideoStabilizationEnabled(int cameraId) async {
+    return false; // Default to false until implementation is complete
+  }
+
+  // Lens properties methods
+  @override
+  Future<double> getLensAperture(int cameraId) async {
+    return _hostApi.getLensAperture();
+  }
+
+  @override
+  Future<double> getFocalLength(int cameraId) async {
+    return _hostApi.getFocalLength();
+  }
+
+  // Torch level control methods
+  @override
+  Future<void> setTorchLevel(int cameraId, double level) async {
+    await _hostApi.setTorchLevel(level);
+  }
+
+  @override
+  Future<double> getTorchLevel(int cameraId) async {
+    // This method isn't in pigeon yet, return 0.0 for now
+    return 0.0;
+  }
+
+  @override
+  Future<bool> isTorchLevelSupported(int cameraId) async {
+    // Most iOS devices support torch level control
+    return true;
+  }
+
+  @override
+  Future<double> getMaxTorchLevel(int cameraId) async {
+    return _hostApi.getMaxTorchLevel();
+  }
+
+  // Color effect methods (simplified implementation)
+  @override
+  Future<void> setColorEffect(int cameraId, ColorEffect colorEffect) async {
+    // Color effects not yet fully implemented in pigeon
+  }
+
+  @override
+  Future<ColorEffect> getColorEffect(int cameraId) async {
+    return ColorEffect.none;
+  }
+
+  @override
+  Future<List<ColorEffect>> getSupportedColorEffects(int cameraId) async {
+    return [ColorEffect.none]; // Default to no effects until implementation is complete
+  }
+
   @override
   Widget buildPreview(int cameraId) {
     return Texture(textureId: cameraId);

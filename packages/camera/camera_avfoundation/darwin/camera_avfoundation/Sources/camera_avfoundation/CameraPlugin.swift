@@ -663,6 +663,85 @@ extension CameraPlugin: CameraApi {
       completion(NSNumber(value: maxColorTemp), nil)
     }
   }
+
+  // MARK: - Frame Rate Control
+  public func setFrameRateRange(
+    _ minFrameRate: Int,
+    maxFrameRate: Int,
+    completion: @escaping (FlutterError?) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setFrameRateRange(minFrameRate: minFrameRate, maxFrameRate: maxFrameRate, withCompletion: completion)
+    }
+  }
+
+  public func getSupportedFrameRateRanges(_ completion: @escaping ([FCPPlatformFrameRateRange]?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let ranges = self?.camera?.getSupportedFrameRateRanges() ?? []
+      let platformRanges = ranges.map { range in
+        FCPPlatformFrameRateRange.make(withMinFrameRate: range.0, maxFrameRate: range.1)
+      }
+      completion(platformRanges, nil)
+    }
+  }
+
+  // MARK: - Image Stabilization
+  public func setVideoStabilization(_ enabled: Bool, completion: @escaping (FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setVideoStabilization(enabled, withCompletion: completion)
+    }
+  }
+
+  public func isVideoStabilizationSupported(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let supported = self?.camera?.isVideoStabilizationSupported() ?? false
+      completion(NSNumber(value: supported), nil)
+    }
+  }
+
+  // MARK: - Lens Properties
+  public func getLensAperture(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let aperture = self?.camera?.getLensAperture() ?? 2.0
+      completion(NSNumber(value: aperture), nil)
+    }
+  }
+
+  public func getFocalLength(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let focalLength = self?.camera?.getFocalLength() ?? 4.0
+      completion(NSNumber(value: focalLength), nil)
+    }
+  }
+
+  // MARK: - Torch Level Control
+  public func setTorchLevel(_ level: Double, completion: @escaping (FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setTorchLevel(level, withCompletion: completion)
+    }
+  }
+
+  public func getMaxTorchLevel(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let maxLevel = self?.camera?.getMaxTorchLevel() ?? 1.0
+      completion(NSNumber(value: maxLevel), nil)
+    }
+  }
+
+  // MARK: - Color Effects
+  public func setColorEffect(_ effect: FCPPlatformColorEffect, completion: @escaping (FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setColorEffect(effect, withCompletion: completion)
+    }
+  }
+
+  public func getSupportedColorEffects(_ completion: @escaping ([FCPPlatformColorEffectBox]?, FlutterError?) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      let effects = self?.camera?.getSupportedColorEffects() ?? [.none]
+      let boxedEffects = effects.map { FCPPlatformColorEffectBox(value: $0) }
+      completion(boxedEffects, nil)
+    }
+  }
   
   // MARK: - Method Channel Bridge
   

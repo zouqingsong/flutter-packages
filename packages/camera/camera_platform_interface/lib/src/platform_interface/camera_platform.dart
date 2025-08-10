@@ -425,4 +425,29 @@ abstract class CameraPlatform extends PlatformInterface {
     // No-op by default. Platforms that support setting the JPEG quality
     // override this method.
   }
+
+  // Torch level control methods
+
+  /// Sets the torch level for the selected camera.
+  ///
+  /// [level] should be between 0.0 (off) and 1.0 (maximum brightness).
+  Future<void> setTorchLevel(int cameraId, double level) {
+    throw UnimplementedError('setTorchLevel() is not implemented.');
+  }
+
+  /// Gets the current torch level for the selected camera.
+  Future<double> getTorchLevel(int cameraId) {
+    throw UnimplementedError('getTorchLevel() is not implemented.');
+  }
+
+  /// Gets whether torch level control is supported by the selected camera.
+  Future<bool> isTorchLevelSupported(int cameraId) {
+    throw UnimplementedError('isTorchLevelSupported() is not implemented.');
+  }
+
+  /// Gets the maximum supported torch level for the selected camera.
+  Future<double> getMaxTorchLevel(int cameraId) {
+    throw UnimplementedError('getMaxTorchLevel() is not implemented.');
+  }
+  }
 }

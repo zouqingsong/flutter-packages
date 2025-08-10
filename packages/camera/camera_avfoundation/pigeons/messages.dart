@@ -56,6 +56,16 @@ enum PlatformWhiteBalanceMode {
   locked,
 }
 
+// Pigeon version of ColorEffect.
+enum PlatformColorEffect {
+  none,
+  mono,
+  negative,
+  sepia,
+  posterize,
+  aqua,
+}
+
 /// Pigeon version of ImageFileFormat.
 enum PlatformImageFileFormat { jpeg, heif }
 
@@ -184,6 +194,14 @@ class PlatformSize {
 
   final double width;
   final double height;
+}
+
+// Pigeon version of FrameRateRange.
+class PlatformFrameRateRange {
+  PlatformFrameRateRange({required this.minFrameRate, required this.maxFrameRate});
+
+  final int minFrameRate;
+  final int maxFrameRate;
 }
 
 @HostApi()
@@ -424,6 +442,61 @@ abstract class CameraApi {
   @async
   @ObjCSelector('setJpegImageQuality:')
   void setJpegImageQuality(int quality);
+
+  // MARK: - Frame Rate Control
+  /// Sets the frame rate range for video capture.
+  @async
+  @ObjCSelector('setFrameRateRange:maxFrameRate:')
+  void setFrameRateRange(int minFrameRate, int maxFrameRate);
+
+  /// Returns the supported frame rate ranges.
+  @async
+  @ObjCSelector('getSupportedFrameRateRanges')
+  List<PlatformFrameRateRange> getSupportedFrameRateRanges();
+
+  // MARK: - Image Stabilization
+  /// Sets video stabilization mode.
+  @async
+  @ObjCSelector('setVideoStabilization:')
+  void setVideoStabilization(bool enabled);
+
+  /// Returns whether video stabilization is supported.
+  @async
+  @ObjCSelector('isVideoStabilizationSupported')
+  bool isVideoStabilizationSupported();
+
+  // MARK: - Lens Properties
+  /// Returns the lens aperture value.
+  @async
+  @ObjCSelector('getLensAperture')
+  double getLensAperture();
+
+  /// Returns the focal length in millimeters.
+  @async
+  @ObjCSelector('getFocalLength')
+  double getFocalLength();
+
+  // MARK: - Torch Level Control
+  /// Sets the torch level (0.0 to 1.0).
+  @async
+  @ObjCSelector('setTorchLevel:')
+  void setTorchLevel(double level);
+
+  /// Returns the maximum supported torch level.
+  @async
+  @ObjCSelector('getMaxTorchLevel')
+  double getMaxTorchLevel();
+
+  // MARK: - Color Effects
+  /// Sets a color effect filter.
+  @async
+  @ObjCSelector('setColorEffect:')
+  void setColorEffect(PlatformColorEffect effect);
+
+  /// Returns the supported color effects.
+  @async
+  @ObjCSelector('getSupportedColorEffects')
+  List<PlatformColorEffect> getSupportedColorEffects();
 }
 
 @EventChannelApi()

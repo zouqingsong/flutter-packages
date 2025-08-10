@@ -141,6 +141,15 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
   /// Gets the maximum supported color temperature in Kelvin.
   func getMaxColorTemperature() -> Int
 
+  // MARK: - Torch Level Control
+  /// Sets the torch level (0.0 to 1.0).
+  /// @param level Torch level where 0.0 is off and 1.0 is maximum brightness.
+  func setTorchLevel(_ level: Double,
+    withCompletion: @escaping (_ error: FlutterError?) -> Void)
+
+  /// Gets the maximum supported torch level.
+  func getMaxTorchLevel() -> Double
+
   func setZoomLevel(_ zoom: CGFloat, withCompletion: @escaping (Result<Void, any Error>) -> Void)
 
   func setVideoStabilizationMode(

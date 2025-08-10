@@ -50,6 +50,16 @@ enum PlatformWhiteBalanceMode {
   locked,
 }
 
+/// Pigeon equivalent of [ColorEffect].
+enum PlatformColorEffect {
+  none,
+  mono,
+  negative,
+  sepia,
+  posterize,
+  aqua,
+}
+
 /// Data needed for [CameraInitializedEvent].
 class PlatformCameraState {
   PlatformCameraState(
@@ -82,6 +92,14 @@ class PlatformPoint {
 
   final double x;
   final double y;
+}
+
+/// Pigeon equivalent of [FrameRateRange].
+class PlatformFrameRateRange {
+  PlatformFrameRateRange({required this.minFrameRate, required this.maxFrameRate});
+
+  final int minFrameRate;
+  final int maxFrameRate;
 }
 
 /// Pigeon equivalent of [ResolutionPreset].
@@ -278,6 +296,45 @@ abstract class CameraApi {
 
   /// Sets the JPEG compression quality for still image capture.
   void setJpegImageQuality(int quality);
+
+  // MARK: - Frame Rate Control
+  /// Sets the frame rate range for video capture.
+  @async
+  void setFrameRateRange(int minFrameRate, int maxFrameRate);
+
+  /// Returns the supported frame rate ranges.
+  List<PlatformFrameRateRange> getSupportedFrameRateRanges();
+
+  // MARK: - Image Stabilization
+  /// Sets video stabilization mode.
+  @async
+  void setVideoStabilization(bool enabled);
+
+  /// Returns whether video stabilization is supported.
+  bool isVideoStabilizationSupported();
+
+  // MARK: - Lens Properties
+  /// Returns the lens aperture value.
+  double getLensAperture();
+
+  /// Returns the focal length in millimeters.
+  double getFocalLength();
+
+  // MARK: - Torch Level Control
+  /// Sets the torch level (0.0 to 1.0).
+  @async
+  void setTorchLevel(double level);
+
+  /// Returns the maximum supported torch level.
+  double getMaxTorchLevel();
+
+  // MARK: - Color Effects
+  /// Sets a color effect filter.
+  @async
+  void setColorEffect(PlatformColorEffect effect);
+
+  /// Returns the supported color effects.
+  List<PlatformColorEffect> getSupportedColorEffects();
 }
 
 /// Handles calls from native side to Dart that are not camera-specific.

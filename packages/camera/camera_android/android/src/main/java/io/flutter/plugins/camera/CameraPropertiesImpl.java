@@ -175,4 +175,37 @@ public class CameraPropertiesImpl implements CameraProperties {
     return cameraCharacteristics.get(
         CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES);
   }
+
+  @NonNull
+  @Override
+  public int[] getAvailableVideoStabilizationModes() {
+    int[] modes = cameraCharacteristics.get(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES);
+    return modes != null ? modes : new int[0];
+  }
+
+  @NonNull
+  @Override
+  public int[] getAvailableEffects() {
+    int[] effects = cameraCharacteristics.get(CameraCharacteristics.CONTROL_AVAILABLE_EFFECTS);
+    return effects != null ? effects : new int[0];
+  }
+
+  @NonNull
+  @Override
+  public Range<Integer>[] getControlAeAvailableTargetFpsRanges() {
+    return cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+  }
+
+  @Nullable
+  @Override
+  public Float getLensInfoAvailableApertures() {
+    float[] apertures = cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES);
+    return (apertures != null && apertures.length > 0) ? apertures[0] : null;
+  }
+
+  @Nullable
+  @Override
+  public float[] getLensInfoAvailableFocalLengths() {
+    return cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+  }
 }

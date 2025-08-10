@@ -294,4 +294,65 @@ public interface CameraProperties {
    */
   @NonNull
   int[] getAvailableNoiseReductionModes();
+
+  /**
+   * Returns a list of video stabilization modes for @see android.control.videoStabilizationMode that are supported
+   * by this camera device.
+   *
+   * <p>By default maps to the @see
+   * android.hardware.camera2.CameraCharacteristics#CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES
+   * key.
+   *
+   * @return int[] List of video stabilization modes that are supported by this camera device.
+   */
+  @NonNull
+  int[] getAvailableVideoStabilizationModes();
+
+  /**
+   * Returns a list of color effects for @see android.control.effectMode that are supported
+   * by this camera device.
+   *
+   * <p>By default maps to the @see
+   * android.hardware.camera2.CameraCharacteristics#CONTROL_AVAILABLE_EFFECTS
+   * key.
+   *
+   * @return int[] List of color effects that are supported by this camera device.
+   */
+  @NonNull
+  int[] getAvailableEffects();
+
+  /**
+   * Returns the list of frame rate ranges for @see android.control.aeTargetFpsRange supported by
+   * this camera device.
+   *
+   * <p>By default maps to the @see
+   * android.hardware.camera2.CameraCharacteristics#CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES key.
+   *
+   * @return android.util.Range<Integer>[] List of frame rate ranges supported by this camera
+   *     device.
+   */
+  @NonNull
+  Range<Integer>[] getControlAeAvailableTargetFpsRanges();
+
+  /**
+   * Returns the list of available apertures for this camera device.
+   *
+   * <p>By default maps to the @see
+   * android.hardware.camera2.CameraCharacteristics#LENS_INFO_AVAILABLE_APERTURES key.
+   *
+   * @return Float The aperture value, or null if not available.
+   */
+  @Nullable
+  Float getLensInfoAvailableApertures();
+
+  /**
+   * Returns the list of available focal lengths for this camera device.
+   *
+   * <p>By default maps to the @see
+   * android.hardware.camera2.CameraCharacteristics#LENS_INFO_AVAILABLE_FOCAL_LENGTHS key.
+   *
+   * @return float[] The available focal lengths in mm, or null if not available.
+   */
+  @Nullable
+  float[] getLensInfoAvailableFocalLengths();
 }
