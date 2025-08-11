@@ -327,6 +327,12 @@ abstract class CameraApi {
   @async
   void setTorchLevel(double level);
 
+  /// Gets the current torch level (0.0 to 1.0).
+  double getTorchLevel();
+
+  /// Returns whether torch level control is supported.
+  bool isTorchLevelSupported();
+
   /// Returns the maximum supported torch level.
   double getMaxTorchLevel();
 

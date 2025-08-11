@@ -146,6 +146,12 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
   func setTorchLevel(_ level: Double,
     withCompletion: @escaping (_ error: FlutterError?) -> Void)
 
+  /// Gets the current torch level (0.0 to 1.0).
+  func getTorchLevel() -> Double
+
+  /// Returns whether torch level control is supported.
+  func isTorchLevelSupported() -> Bool
+
   /// Gets the maximum supported torch level.
   func getMaxTorchLevel() -> Double
 

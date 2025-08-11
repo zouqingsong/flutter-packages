@@ -714,6 +714,22 @@ extension CameraPlugin: CameraApi {
     }
   }
 
+  public func getTorchLevel(_ error: AutoreleasingUnsafeMutablePointer<FlutterError?>) -> NSNumber? {
+    guard let torchLevel = camera?.getTorchLevel() else {
+      error.pointee = FlutterError(code: "CAMERA_ERROR", message: "Camera not available", details: nil)
+      return nil
+    }
+    return NSNumber(value: torchLevel)
+  }
+
+  public func isTorchLevelSupported(_ error: AutoreleasingUnsafeMutablePointer<FlutterError?>) -> NSNumber? {
+    guard let isSupported = camera?.isTorchLevelSupported() else {
+      error.pointee = FlutterError(code: "CAMERA_ERROR", message: "Camera not available", details: nil)
+      return nil
+    }
+    return NSNumber(value: isSupported)
+  }
+
   public func getMaxTorchLevel(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
     captureSessionQueue.async { [weak self] in
       let maxLevel = self?.camera?.getMaxTorchLevel() ?? 1.0

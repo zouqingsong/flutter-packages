@@ -510,14 +510,12 @@ class AVFoundationCamera extends CameraPlatform {
 
   @override
   Future<double> getTorchLevel(int cameraId) async {
-    // This method isn't in pigeon yet, return 0.0 for now
-    return 0.0;
+    return _hostApi.getTorchLevel();
   }
 
   @override
   Future<bool> isTorchLevelSupported(int cameraId) async {
-    // Most iOS devices support torch level control
-    return true;
+    return _hostApi.isTorchLevelSupported();
   }
 
   @override
