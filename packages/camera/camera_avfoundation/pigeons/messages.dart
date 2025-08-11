@@ -482,6 +482,14 @@ abstract class CameraApi {
   @ObjCSelector('setTorchLevel:')
   void setTorchLevel(double level);
 
+  /// Gets the current torch level (0.0 to 1.0).
+  @ObjCSelector('getTorchLevel')
+  double getTorchLevel();
+
+  /// Returns whether torch level control is supported.
+  @ObjCSelector('isTorchLevelSupported')
+  bool isTorchLevelSupported();
+
   /// Returns the maximum supported torch level.
   @async
   @ObjCSelector('getMaxTorchLevel')

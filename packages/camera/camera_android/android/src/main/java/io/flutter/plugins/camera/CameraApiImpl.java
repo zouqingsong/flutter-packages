@@ -486,6 +486,16 @@ final class CameraApiImpl implements Messages.CameraApi {
   }
 
   @Override
+  public @NonNull Double getTorchLevel() {
+    return camera.getTorchLevel();
+  }
+
+  @Override
+  public @NonNull Boolean isTorchLevelSupported() {
+    return camera.isTorchLevelSupported();
+  }
+
+  @Override
   public @NonNull Double getMaxTorchLevel() {
     return camera.getMaxTorchLevel();
   }
