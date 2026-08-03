@@ -90,3 +90,15 @@ WhiteBalanceMode whiteBalanceModeFromPlatform(PlatformWhiteBalanceMode mode) {
     PlatformWhiteBalanceMode.locked => WhiteBalanceMode.locked,
   };
 }
+
+/// Converts a Pigeon [PlatformColorEffect] to a [ColorEffect].
+ColorEffect colorEffectFromPlatform(PlatformColorEffect effect) {
+  return switch (effect) {
+    PlatformColorEffect.none => ColorEffect.none,
+    PlatformColorEffect.mono => ColorEffect.mono,
+    PlatformColorEffect.negative => ColorEffect.negative,
+    PlatformColorEffect.sepia => ColorEffect.sepia,
+    PlatformColorEffect.posterize => ColorEffect.posterize,
+    PlatformColorEffect.aqua => ColorEffect.aqua,
+  };
+}

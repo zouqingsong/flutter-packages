@@ -165,7 +165,16 @@ void main() {
       // Act
       final Future<void> initializeFuture = camera.initializeCamera(cameraId);
       camera.cameraEventStreamController.add(
-        CameraInitializedEvent(cameraId, 1920, 1080, ExposureMode.auto, true, FocusMode.auto, true),
+        CameraInitializedEvent(
+          cameraId,
+          1920,
+          1080,
+          ExposureMode.auto,
+          true,
+          FocusMode.auto,
+          true,
+          WhiteBalanceMode.auto,
+        ),
       );
       await initializeFuture;
 
@@ -190,7 +199,16 @@ void main() {
       );
       final Future<void> initializeFuture = camera.initializeCamera(cameraId);
       camera.cameraEventStreamController.add(
-        CameraInitializedEvent(cameraId, 1920, 1080, ExposureMode.auto, true, FocusMode.auto, true),
+        CameraInitializedEvent(
+          cameraId,
+          1920,
+          1080,
+          ExposureMode.auto,
+          true,
+          FocusMode.auto,
+          true,
+          WhiteBalanceMode.auto,
+        ),
       );
       await initializeFuture;
 
@@ -220,7 +238,16 @@ void main() {
       );
       final Future<void> initializeFuture = camera.initializeCamera(cameraId);
       camera.cameraEventStreamController.add(
-        CameraInitializedEvent(cameraId, 1920, 1080, ExposureMode.auto, true, FocusMode.auto, true),
+        CameraInitializedEvent(
+          cameraId,
+          1920,
+          1080,
+          ExposureMode.auto,
+          true,
+          FocusMode.auto,
+          true,
+          WhiteBalanceMode.auto,
+        ),
       );
       await initializeFuture;
     });
@@ -240,6 +267,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       camera.hostCameraHandlers[cameraId]!.initialized(
         PlatformCameraState(
@@ -248,6 +276,7 @@ void main() {
           focusMode: PlatformFocusMode.auto,
           exposurePointSupported: true,
           focusPointSupported: true,
+          whiteBalanceMode: PlatformWhiteBalanceMode.auto,
         ),
       );
 
@@ -319,7 +348,16 @@ void main() {
       );
       final Future<void> initializeFuture = camera.initializeCamera(cameraId);
       camera.cameraEventStreamController.add(
-        CameraInitializedEvent(cameraId, 1920, 1080, ExposureMode.auto, true, FocusMode.auto, true),
+        CameraInitializedEvent(
+          cameraId,
+          1920,
+          1080,
+          ExposureMode.auto,
+          true,
+          FocusMode.auto,
+          true,
+          WhiteBalanceMode.auto,
+        ),
       );
       await initializeFuture;
     });

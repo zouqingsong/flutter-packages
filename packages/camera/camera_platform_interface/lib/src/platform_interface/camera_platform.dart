@@ -335,6 +335,67 @@ abstract class CameraPlatform extends PlatformInterface {
     throw UnimplementedError('getMaxColorTemperature() is not implemented.');
   }
 
+  /// Sets the frame rate range for the selected camera.
+  Future<void> setFrameRateRange(int cameraId, FrameRateRange frameRateRange) {
+    throw UnimplementedError('setFrameRateRange() is not implemented.');
+  }
+
+  /// Gets the current frame rate range for the selected camera.
+  Future<FrameRateRange> getFrameRateRange(int cameraId) {
+    throw UnimplementedError('getFrameRateRange() is not implemented.');
+  }
+
+  /// Gets supported frame rate ranges for the selected camera.
+  Future<List<FrameRateRange>> getSupportedFrameRateRanges(int cameraId) {
+    throw UnimplementedError(
+      'getSupportedFrameRateRanges() is not implemented.',
+    );
+  }
+
+  /// Enables or disables video stabilization for the selected camera.
+  Future<void> setVideoStabilization(int cameraId, bool enabled) {
+    throw UnimplementedError('setVideoStabilization() is not implemented.');
+  }
+
+  /// Returns whether video stabilization is supported by the selected camera.
+  Future<bool> isVideoStabilizationSupported(int cameraId) {
+    throw UnimplementedError(
+      'isVideoStabilizationSupported() is not implemented.',
+    );
+  }
+
+  /// Returns whether video stabilization is currently enabled.
+  Future<bool> isVideoStabilizationEnabled(int cameraId) {
+    throw UnimplementedError(
+      'isVideoStabilizationEnabled() is not implemented.',
+    );
+  }
+
+  /// Returns the lens aperture value for the selected camera.
+  Future<double> getLensAperture(int cameraId) {
+    throw UnimplementedError('getLensAperture() is not implemented.');
+  }
+
+  /// Returns the focal length in millimeters for the selected camera.
+  Future<double> getFocalLength(int cameraId) {
+    throw UnimplementedError('getFocalLength() is not implemented.');
+  }
+
+  /// Sets a color effect for the selected camera.
+  Future<void> setColorEffect(int cameraId, ColorEffect colorEffect) {
+    throw UnimplementedError('setColorEffect() is not implemented.');
+  }
+
+  /// Gets the current color effect for the selected camera.
+  Future<ColorEffect> getColorEffect(int cameraId) {
+    throw UnimplementedError('getColorEffect() is not implemented.');
+  }
+
+  /// Gets the list of color effects supported by the selected camera.
+  Future<List<ColorEffect>> getSupportedColorEffects(int cameraId) {
+    throw UnimplementedError('getSupportedColorEffects() is not implemented.');
+  }
+
   /// Gets the maximum supported zoom level for the selected camera.
   Future<double> getMaxZoomLevel(int cameraId) {
     throw UnimplementedError('getMaxZoomLevel() is not implemented.');
@@ -448,6 +509,5 @@ abstract class CameraPlatform extends PlatformInterface {
   /// Gets the maximum supported torch level for the selected camera.
   Future<double> getMaxTorchLevel(int cameraId) {
     throw UnimplementedError('getMaxTorchLevel() is not implemented.');
-  }
   }
 }

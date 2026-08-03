@@ -1876,6 +1876,7 @@ void main() {
       true,
       FocusMode.auto,
       true,
+      WhiteBalanceMode.auto,
     );
 
     // Call createCamera.
@@ -1959,6 +1960,7 @@ void main() {
       false,
       FocusMode.auto,
       false,
+      WhiteBalanceMode.auto,
     );
 
     camera.cameraEventStreamController.add(testEvent);

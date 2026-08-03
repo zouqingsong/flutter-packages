@@ -494,6 +494,7 @@ class AndroidCameraCameraX extends CameraPlatform {
     // support these by default.
     const ExposureMode exposureMode = ExposureMode.auto;
     const FocusMode focusMode = FocusMode.auto;
+    const WhiteBalanceMode whiteBalanceMode = WhiteBalanceMode.auto;
     const exposurePointSupported = true;
     const focusPointSupported = true;
 
@@ -506,6 +507,7 @@ class AndroidCameraCameraX extends CameraPlatform {
         exposurePointSupported,
         focusMode,
         focusPointSupported,
+        whiteBalanceMode,
       ),
     );
   }

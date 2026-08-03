@@ -141,6 +141,37 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
   /// Gets the maximum supported color temperature in Kelvin.
   func getMaxColorTemperature() -> Int
 
+  /// Sets the frame-rate range (fps).
+  func setFrameRateRange(
+    minFrameRate: Int,
+    maxFrameRate: Int,
+    withCompletion: @escaping (_ error: FlutterError?) -> Void)
+
+  /// Gets supported frame-rate ranges (fps).
+  func getSupportedFrameRateRanges() -> [(Int64, Int64)]
+
+  /// Enables/disables video stabilization.
+  func setVideoStabilization(
+    _ enabled: Bool,
+    withCompletion: @escaping (_ error: FlutterError?) -> Void)
+
+  /// Returns whether video stabilization can be enabled.
+  func isVideoStabilizationSupported() -> Bool
+
+  /// Gets lens aperture value.
+  func getLensAperture() -> Double
+
+  /// Gets focal-length-like value for the active lens.
+  func getFocalLength() -> Double
+
+  /// Sets color effect.
+  func setColorEffect(
+    _ effect: PlatformColorEffect,
+    withCompletion: @escaping (_ error: FlutterError?) -> Void)
+
+  /// Gets supported color effects.
+  func getSupportedColorEffects() -> [PlatformColorEffect]
+
   // MARK: - Torch Level Control
   /// Sets the torch level (0.0 to 1.0).
   /// @param level Torch level where 0.0 is off and 1.0 is maximum brightness.

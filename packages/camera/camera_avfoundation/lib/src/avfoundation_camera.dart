@@ -60,6 +60,10 @@ class AVFoundationCamera extends CameraPlatform {
   // The stream for vending frames to platform interface clients.
   StreamController<CameraImageData>? _frameStreamController;
 
+  // Tracks requested stabilization state since the host API currently only
+  // exposes support checks, not an enabled-state getter.
+  final Map<int, bool> _videoStabilizationEnabled = <int, bool>{};
+
   Stream<CameraEvent> _cameraEvents(int cameraId) =>
       cameraEventStreamController.stream
           .where((CameraEvent event) => event.cameraId == cameraId);
@@ -278,7 +282,7 @@ class AVFoundationCamera extends CameraPlatform {
         throw CameraException(e.code, e.message);
       }
       _frameStreamController!
-          .add(cameraImageFromPlatformData(imageData as Map<dynamic, dynamic>));
+          .add(cameraImageFromPlatformData(imageData as PlatformCameraImageData));
     });
   }
 
@@ -413,27 +417,19 @@ class AVFoundationCamera extends CameraPlatform {
   }
 
   Future<int> getMinExposureTime(int cameraId) async {
-    // This would need to be implemented to get actual device capabilities
-    // For now, return a reasonable minimum (1 microsecond)
-    return 1;
+    return _hostApi.getMinExposureTime();
   }
 
   Future<int> getMaxExposureTime(int cameraId) async {
-    // This would need to be implemented to get actual device capabilities
-    // For now, return a reasonable maximum (1 second = 1,000,000 microseconds)
-    return 1000000;
+    return _hostApi.getMaxExposureTime();
   }
 
   Future<int> getMinIso(int cameraId) async {
-    // This would need to be implemented to get actual device capabilities
-    // For now, return ISO 100 as a reasonable minimum
-    return 100;
+    return _hostApi.getMinIso();
   }
 
   Future<int> getMaxIso(int cameraId) async {
-    // This would need to be implemented to get actual device capabilities
-    // For now, return ISO 3200 as a reasonable maximum
-    return 3200;
+    return _hostApi.getMaxIso();
   }
 
   @override
@@ -456,39 +452,45 @@ class AVFoundationCamera extends CameraPlatform {
     return _hostApi.getMaxColorTemperature();
   }
 
-  // Frame rate control methods (simplified implementation)
   @override
   Future<void> setFrameRateRange(int cameraId, FrameRateRange frameRateRange) async {
-    // Frame rate control not yet implemented in pigeon - using minimal implementation
-    // This would require adding to pigeons/messages.dart and regenerating
+    await _hostApi.setFrameRateRange(
+      frameRateRange.minFrameRate,
+      frameRateRange.maxFrameRate,
+    );
   }
 
   @override
   Future<FrameRateRange> getFrameRateRange(int cameraId) async {
-    // Return default range
-    return const FrameRateRange(30, 30);
+    final List<FrameRateRange> supported =
+        await getSupportedFrameRateRanges(cameraId);
+    return supported.isNotEmpty ? supported.first : const FrameRateRange(30, 30);
   }
 
   @override
   Future<List<FrameRateRange>> getSupportedFrameRateRanges(int cameraId) async {
-    // Return default ranges
-    return const [FrameRateRange(30, 30), FrameRateRange(60, 60)];
+    final List<PlatformFrameRateRange> ranges =
+        await _hostApi.getSupportedFrameRateRanges();
+    return ranges
+        .map((PlatformFrameRateRange range) =>
+            FrameRateRange(range.minFrameRate, range.maxFrameRate))
+        .toList(growable: false);
   }
 
-  // Video stabilization methods (simplified implementation)
   @override
   Future<void> setVideoStabilization(int cameraId, bool enabled) async {
-    // Video stabilization not yet implemented in pigeon
+    await _hostApi.setVideoStabilization(enabled);
+    _videoStabilizationEnabled[cameraId] = enabled;
   }
 
   @override
   Future<bool> isVideoStabilizationSupported(int cameraId) async {
-    return true; // Most iOS devices support video stabilization
+    return _hostApi.isVideoStabilizationSupported();
   }
 
   @override
   Future<bool> isVideoStabilizationEnabled(int cameraId) async {
-    return false; // Default to false until implementation is complete
+    return _videoStabilizationEnabled[cameraId] ?? false;
   }
 
   // Lens properties methods
@@ -523,10 +525,9 @@ class AVFoundationCamera extends CameraPlatform {
     return _hostApi.getMaxTorchLevel();
   }
 
-  // Color effect methods (simplified implementation)
   @override
   Future<void> setColorEffect(int cameraId, ColorEffect colorEffect) async {
-    // Color effects not yet fully implemented in pigeon
+    await _hostApi.setColorEffect(_pigeonColorEffect(colorEffect));
   }
 
   @override
@@ -536,7 +537,11 @@ class AVFoundationCamera extends CameraPlatform {
 
   @override
   Future<List<ColorEffect>> getSupportedColorEffects(int cameraId) async {
-    return [ColorEffect.none]; // Default to no effects until implementation is complete
+    final List<PlatformColorEffect> effects =
+        await _hostApi.getSupportedColorEffects();
+    return effects
+        .map((PlatformColorEffect effect) => colorEffectFromPlatform(effect))
+        .toList(growable: false);
   }
 
   @override
@@ -593,6 +598,28 @@ class AVFoundationCamera extends CameraPlatform {
     // switch as needing an update.
     // ignore: dead_code
     return PlatformWhiteBalanceMode.auto;
+  }
+
+  /// Returns a [ColorEffect]'s Pigeon representation.
+  PlatformColorEffect _pigeonColorEffect(ColorEffect colorEffect) {
+    switch (colorEffect) {
+      case ColorEffect.none:
+        return PlatformColorEffect.none;
+      case ColorEffect.mono:
+        return PlatformColorEffect.mono;
+      case ColorEffect.negative:
+        return PlatformColorEffect.negative;
+      case ColorEffect.sepia:
+        return PlatformColorEffect.sepia;
+      case ColorEffect.posterize:
+        return PlatformColorEffect.posterize;
+      case ColorEffect.aqua:
+        return PlatformColorEffect.aqua;
+      case ColorEffect.solarize:
+        return PlatformColorEffect.none;
+      default:
+        return PlatformColorEffect.none;
+    }
   }
 
   /// Returns a [FlashMode]'s Pigeon representation.

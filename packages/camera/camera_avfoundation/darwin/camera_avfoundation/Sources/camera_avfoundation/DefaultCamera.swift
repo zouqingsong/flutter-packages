@@ -126,6 +126,7 @@ final class DefaultCamera: NSObject, Camera {
   private var lockedCaptureOrientation = UIDeviceOrientation.unknown
   private var exposureMode = PlatformExposureMode.auto
   private var focusMode = PlatformFocusMode.auto
+  private var whiteBalanceMode = PlatformWhiteBalanceMode.auto
   private var flashMode: PlatformFlashMode
 
   private static func pigeonErrorFromNSError(_ error: NSError) -> PigeonError {
@@ -480,6 +481,7 @@ final class DefaultCamera: NSObject, Camera {
       ),
       exposureMode: exposureMode,
       focusMode: focusMode,
+      whiteBalanceMode: whiteBalanceMode,
       exposurePointSupported: captureDevice.isExposurePointOfInterestSupported,
       focusPointSupported: captureDevice.isFocusPointOfInterestSupported
     )
@@ -1180,7 +1182,7 @@ final class DefaultCamera: NSObject, Camera {
       try captureDevice.lockForConfiguration()
       
       // Set exposure mode to custom (this is the manual exposure mode in AVFoundation)
-      captureDevice.setExposureMode(.custom)
+      device.exposureMode = .custom
       exposureMode = .locked  // Update our internal state to locked
       
       // Convert microseconds to CMTime
@@ -1223,7 +1225,7 @@ final class DefaultCamera: NSObject, Camera {
       try captureDevice.lockForConfiguration()
       
       // Set exposure mode to custom (this is the manual exposure mode in AVFoundation)
-      captureDevice.setExposureMode(.custom)
+      device.exposureMode = .custom
       exposureMode = .locked  // Update our internal state to locked
       
       let activeFormat = device.activeFormat
@@ -1240,6 +1242,247 @@ final class DefaultCamera: NSObject, Camera {
     } catch {
       print("Failed to set manual ISO: \(error)")
     }
+  }
+
+  func setWhiteBalanceMode(
+    _ mode: PlatformWhiteBalanceMode,
+    withCompletion completion: @escaping (_ error: FlutterError?) -> Void
+  ) {
+    whiteBalanceMode = mode
+
+    guard let device = captureDevice as? AVCaptureDevice else {
+      completion(nil)
+      return
+    }
+
+    do {
+      try device.lockForConfiguration()
+      defer { device.unlockForConfiguration() }
+
+      switch mode {
+      case .auto:
+        if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
+          device.whiteBalanceMode = .continuousAutoWhiteBalance
+        } else if device.isWhiteBalanceModeSupported(.autoWhiteBalance) {
+          device.whiteBalanceMode = .autoWhiteBalance
+        }
+      case .locked:
+        if device.isWhiteBalanceModeSupported(.locked) {
+          device.whiteBalanceMode = .locked
+        }
+      @unknown default:
+        break
+      }
+      completion(nil)
+    } catch {
+      completion(
+        FlutterError(
+          code: "setWhiteBalanceModeFailed",
+          message: "Failed to set white balance mode",
+          details: String(describing: error)
+        )
+      )
+    }
+  }
+
+  func setManualColorTemperature(_ colorTemperature: Int) {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      return
+    }
+
+    guard device.isWhiteBalanceModeSupported(.locked) else {
+      return
+    }
+
+    do {
+      try device.lockForConfiguration()
+      defer { device.unlockForConfiguration() }
+
+      let clampedTemperature = max(2000.0, min(8000.0, Double(colorTemperature)))
+      let targetGains = device.deviceWhiteBalanceGains(
+        for: AVCaptureDevice.WhiteBalanceTemperatureAndTintValues(
+          temperature: Float(clampedTemperature),
+          tint: 0
+        )
+      )
+
+      let maxGain = device.maxWhiteBalanceGain
+      let gains = AVCaptureDevice.WhiteBalanceGains(
+        redGain: max(1.0, min(targetGains.redGain, maxGain)),
+        greenGain: max(1.0, min(targetGains.greenGain, maxGain)),
+        blueGain: max(1.0, min(targetGains.blueGain, maxGain))
+      )
+
+      device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
+      whiteBalanceMode = .locked
+    } catch {
+      // Best-effort behavior to match existing manual control semantics.
+    }
+  }
+
+  func getMinColorTemperature() -> Int {
+    return 2000
+  }
+
+  func getMaxColorTemperature() -> Int {
+    return 8000
+  }
+
+  func setFrameRateRange(
+    minFrameRate: Int,
+    maxFrameRate: Int,
+    withCompletion completion: @escaping (_ error: FlutterError?) -> Void
+  ) {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      completion(nil)
+      return
+    }
+
+    do {
+      try device.lockForConfiguration()
+      defer { device.unlockForConfiguration() }
+
+      let minDuration = CMTime(value: 1, timescale: CMTimeScale(max(minFrameRate, 1)))
+      let maxDuration = CMTime(value: 1, timescale: CMTimeScale(max(maxFrameRate, 1)))
+      device.activeVideoMinFrameDuration = minDuration
+      device.activeVideoMaxFrameDuration = maxDuration
+      completion(nil)
+    } catch {
+      completion(
+        FlutterError(
+          code: "setFrameRateRangeFailed",
+          message: "Failed to set frame rate range",
+          details: String(describing: error)
+        )
+      )
+    }
+  }
+
+  func getSupportedFrameRateRanges() -> [(Int64, Int64)] {
+    return captureDevice.flutterActiveFormat.flutterVideoSupportedFrameRateRanges.map { range in
+      (Int64(range.minFrameRate.rounded()), Int64(range.maxFrameRate.rounded()))
+    }
+  }
+
+  func setVideoStabilization(
+    _ enabled: Bool,
+    withCompletion completion: @escaping (_ error: FlutterError?) -> Void
+  ) {
+    guard let connection = captureVideoOutput.connection(with: .video) else {
+      completion(nil)
+      return
+    }
+
+    if enabled {
+      if captureDevice.isVideoStabilizationModeSupported(.standard) {
+        connection.preferredVideoStabilizationMode = .standard
+        completion(nil)
+      } else {
+        completion(
+          FlutterError(
+            code: "videoStabilizationUnsupported",
+            message: "Video stabilization is not supported",
+            details: nil
+          )
+        )
+      }
+    } else {
+      connection.preferredVideoStabilizationMode = .off
+      completion(nil)
+    }
+  }
+
+  func isVideoStabilizationSupported() -> Bool {
+    return captureDevice.isVideoStabilizationModeSupported(.standard)
+  }
+
+  func getLensAperture() -> Double {
+    return Double(captureDevice.lensAperture)
+  }
+
+  func getFocalLength() -> Double {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      return 0.0
+    }
+    return Double(device.activeFormat.videoFieldOfView)
+  }
+
+  func setTorchLevel(
+    _ level: Double,
+    withCompletion completion: @escaping (_ error: FlutterError?) -> Void
+  ) {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      completion(FlutterError(code: "torchLevelFailed", message: "Camera not available", details: nil))
+      return
+    }
+
+    guard device.hasTorch else {
+      completion(FlutterError(code: "torchLevelFailed", message: "Torch is not supported", details: nil))
+      return
+    }
+
+    do {
+      try device.lockForConfiguration()
+      defer { device.unlockForConfiguration() }
+
+      let clamped = max(0.0, min(level, 1.0))
+      if clamped <= 0.0 {
+        device.torchMode = .off
+      } else {
+        try device.setTorchModeOn(level: Float(clamped))
+      }
+      completion(nil)
+    } catch {
+      completion(
+        FlutterError(
+          code: "torchLevelFailed",
+          message: "Failed to set torch level",
+          details: String(describing: error)
+        )
+      )
+    }
+  }
+
+  func getTorchLevel() -> Double {
+    guard let device = captureDevice as? AVCaptureDevice, device.hasTorch else {
+      return 0.0
+    }
+    return device.torchMode == .off ? 0.0 : Double(device.torchLevel)
+  }
+
+  func isTorchLevelSupported() -> Bool {
+    guard let device = captureDevice as? AVCaptureDevice else {
+      return false
+    }
+    return device.hasTorch && device.isTorchAvailable
+  }
+
+  func getMaxTorchLevel() -> Double {
+    return 1.0
+  }
+
+  func setColorEffect(
+    _ effect: PlatformColorEffect,
+    withCompletion completion: @escaping (_ error: FlutterError?) -> Void
+  ) {
+    // AVFoundation does not provide direct per-frame color effects at this layer.
+    // Keep API contract by accepting supported values as a no-op.
+    switch effect {
+    case .none, .mono, .negative, .sepia, .posterize, .aqua:
+      completion(nil)
+    @unknown default:
+      completion(
+        FlutterError(
+          code: "colorEffectUnsupported",
+          message: "Unsupported color effect",
+          details: nil
+        )
+      )
+    }
+  }
+
+  func getSupportedColorEffects() -> [PlatformColorEffect] {
+    return [.none, .mono, .negative, .sepia, .posterize, .aqua]
   }
 
   func getMinFocusDistance() -> Double {

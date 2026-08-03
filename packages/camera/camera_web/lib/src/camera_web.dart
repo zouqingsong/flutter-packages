@@ -315,6 +315,7 @@ class CameraPlugin extends CameraPlatform {
           // TODO(bselwe): Add support for focus mode and point (https://github.com/flutter/flutter/issues/86858).
           FocusMode.auto,
           false,
+          WhiteBalanceMode.auto,
         ),
       );
     } on web.DOMException catch (e) {

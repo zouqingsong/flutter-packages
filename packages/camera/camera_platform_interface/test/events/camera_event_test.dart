@@ -18,6 +18,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
 
       expect(event.cameraId, 1);
@@ -38,6 +39,7 @@ void main() {
         'exposurePointSupported': true,
         'focusMode': 'auto',
         'focusPointSupported': true,
+        'whiteBalanceMode': 'auto',
       });
 
       expect(event.cameraId, 1);
@@ -47,6 +49,7 @@ void main() {
       expect(event.exposurePointSupported, true);
       expect(event.focusMode, FocusMode.auto);
       expect(event.focusPointSupported, true);
+      expect(event.whiteBalanceMode, WhiteBalanceMode.auto);
     });
 
     test('toJson should return a map with all fields', () {
@@ -58,11 +61,12 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
 
       final Map<String, dynamic> jsonMap = event.toJson();
 
-      expect(jsonMap.length, 7);
+      expect(jsonMap.length, 8);
       expect(jsonMap['cameraId'], 1);
       expect(jsonMap['previewWidth'], 1024);
       expect(jsonMap['previewHeight'], 640);
@@ -70,6 +74,7 @@ void main() {
       expect(jsonMap['exposurePointSupported'], true);
       expect(jsonMap['focusMode'], 'auto');
       expect(jsonMap['focusPointSupported'], true);
+      expect(jsonMap['whiteBalanceMode'], 'auto');
     });
 
     test('equals should return true if objects are the same', () {
@@ -81,6 +86,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       const secondEvent = CameraInitializedEvent(
         1,
@@ -90,6 +96,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
 
       expect(firstEvent == secondEvent, true);
@@ -104,6 +111,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       const secondEvent = CameraInitializedEvent(
         2,
@@ -113,6 +121,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
 
       expect(firstEvent == secondEvent, false);
@@ -127,6 +136,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       const secondEvent = CameraInitializedEvent(
         1,
@@ -136,6 +146,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
 
       expect(firstEvent == secondEvent, false);
@@ -150,6 +161,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       const secondEvent = CameraInitializedEvent(
         1,
@@ -159,6 +171,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
 
       expect(firstEvent == secondEvent, false);
@@ -173,6 +186,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       const secondEvent = CameraInitializedEvent(
         1,
@@ -182,6 +196,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
 
       expect(firstEvent == secondEvent, false);
@@ -196,6 +211,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       const secondEvent = CameraInitializedEvent(
         1,
@@ -205,6 +221,7 @@ void main() {
         false,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
 
       expect(firstEvent == secondEvent, false);
@@ -219,6 +236,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       const secondEvent = CameraInitializedEvent(
         1,
@@ -228,6 +246,7 @@ void main() {
         true,
         FocusMode.locked,
         true,
+        WhiteBalanceMode.auto,
       );
 
       expect(firstEvent == secondEvent, false);
@@ -242,6 +261,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       const secondEvent = CameraInitializedEvent(
         1,
@@ -251,6 +271,7 @@ void main() {
         true,
         FocusMode.auto,
         false,
+        WhiteBalanceMode.auto,
       );
 
       expect(firstEvent == secondEvent, false);
@@ -265,6 +286,7 @@ void main() {
         true,
         FocusMode.auto,
         true,
+        WhiteBalanceMode.auto,
       );
       final int expectedHashCode = Object.hash(
         event.cameraId.hashCode,
@@ -274,6 +296,7 @@ void main() {
         event.exposurePointSupported,
         event.focusMode,
         event.focusPointSupported,
+        event.whiteBalanceMode,
       );
 
       expect(event.hashCode, expectedHashCode);

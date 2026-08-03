@@ -6,6 +6,7 @@ package io.flutter.plugins.camera.features;
 
 import android.app.Activity;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import io.flutter.plugins.camera.CameraProperties;
 import io.flutter.plugins.camera.DartMessenger;
 import io.flutter.plugins.camera.features.autofocus.AutoFocusFeature;
@@ -15,6 +16,7 @@ import io.flutter.plugins.camera.features.exposurepoint.ExposurePointFeature;
 import io.flutter.plugins.camera.features.flash.FlashFeature;
 import io.flutter.plugins.camera.features.focuspoint.FocusPointFeature;
 import io.flutter.plugins.camera.features.fpsrange.FpsRangeFeature;
+import io.flutter.plugins.camera.features.jpegquality.JpegQualityFeature;
 import io.flutter.plugins.camera.features.noisereduction.NoiseReductionFeature;
 import io.flutter.plugins.camera.features.resolution.ResolutionFeature;
 import io.flutter.plugins.camera.features.resolution.ResolutionPreset;
@@ -38,6 +40,7 @@ public class CameraFeatures {
   private static final String FLASH = "FLASH";
   private static final String FOCUS_POINT = "FOCUS_POINT";
   private static final String FPS_RANGE = "FPS_RANGE";
+  private static final String JPEG_QUALITY = "JPEG_QUALITY";
   private static final String NOISE_REDUCTION = "NOISE_REDUCTION";
   private static final String REGION_BOUNDARIES = "REGION_BOUNDARIES";
   private static final String RESOLUTION = "RESOLUTION";
@@ -224,6 +227,25 @@ public class CameraFeatures {
    */
   public void setFpsRange(@NonNull FpsRangeFeature fpsRange) {
     this.featureMap.put(FPS_RANGE, fpsRange);
+  }
+
+  /**
+   * Gets the JPEG quality feature if it has been set.
+   *
+   * @return the JPEG quality feature or null when not initialized yet.
+   */
+  @Nullable
+  public JpegQualityFeature getJpegQuality() {
+    return (JpegQualityFeature) featureMap.get(JPEG_QUALITY);
+  }
+
+  /**
+   * Sets the instance of the JPEG quality feature.
+   *
+   * @param jpegQuality the {@link JpegQualityFeature} instance to set.
+   */
+  public void setJpegQuality(@NonNull JpegQualityFeature jpegQuality) {
+    this.featureMap.put(JPEG_QUALITY, jpegQuality);
   }
 
   /**

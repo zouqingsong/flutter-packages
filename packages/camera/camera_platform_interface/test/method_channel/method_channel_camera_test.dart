@@ -208,6 +208,7 @@ void main() {
             true,
             FocusMode.auto,
             true,
+            WhiteBalanceMode.auto,
           ),
         );
         await initializeFuture;
@@ -259,6 +260,7 @@ void main() {
             true,
             FocusMode.auto,
             true,
+            WhiteBalanceMode.auto,
           ),
         );
         await initializeFuture;
@@ -312,6 +314,7 @@ void main() {
             true,
             FocusMode.auto,
             true,
+            WhiteBalanceMode.auto,
           ),
         );
         await initializeFuture;
@@ -331,6 +334,7 @@ void main() {
           true,
           FocusMode.auto,
           true,
+          WhiteBalanceMode.auto,
         );
         await camera.handleCameraMethodCall(MethodCall('initialized', event.toJson()), cameraId);
 
@@ -476,6 +480,7 @@ void main() {
             true,
             FocusMode.auto,
             true,
+            WhiteBalanceMode.auto,
           ),
         );
         await initializeFuture;

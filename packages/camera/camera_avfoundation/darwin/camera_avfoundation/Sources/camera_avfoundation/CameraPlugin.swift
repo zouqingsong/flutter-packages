@@ -90,6 +90,13 @@ public final class CameraPlugin: NSObject, FlutterPlugin {
       details: error.domain)
   }
 
+  private static func pigeonErrorFromFlutterError(_ error: FlutterError) -> PigeonError {
+    return PigeonError(
+      code: error.code,
+      message: error.message,
+      details: error.details)
+  }
+
   func orientationChanged(_ notification: Notification) {
     guard let device = notification.object as? UIDevice else { return }
     let orientation = device.orientation
@@ -569,277 +576,221 @@ extension CameraPlugin: CameraApi {
     }
   }
 
-  func setManualFocusDistance(_ distance: Double, completion: @escaping (FlutterError?) -> Void) {
+  func setManualFocusDistance(
+    distance: Double, completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
     captureSessionQueue.async { [weak self] in
       self?.camera?.setManualFocusDistance(distance)
-      completion(nil)
+      completion(.success(()))
     }
   }
 
-  func getMinFocusDistance(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+  func getMinFocusDistance(completion: @escaping (Result<Double, any Error>) -> Void) {
     captureSessionQueue.async { [weak self] in
-      let minDistance = self?.camera?.getMinFocusDistance() ?? 0.0
-      completion(NSNumber(value: minDistance), nil)
+      completion(.success(self?.camera?.getMinFocusDistance() ?? 0.0))
     }
   }
 
-  func getMaxFocusDistance(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+  func getMaxFocusDistance(completion: @escaping (Result<Double, any Error>) -> Void) {
     captureSessionQueue.async { [weak self] in
-      let maxDistance = self?.camera?.getMaxFocusDistance() ?? 1.0
-      completion(NSNumber(value: maxDistance), nil)
+      completion(.success(self?.camera?.getMaxFocusDistance() ?? 1.0))
     }
   }
 
-  func setManualExposureTime(_ exposureTime: Int, completion: @escaping (FlutterError?) -> Void) {
-    captureSessionQueue.async { [weak self] in
-      self?.camera?.setManualExposureTime(exposureTime)
-      completion(nil)
-    }
-  }
-
-  func getMinExposureTime(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
-    captureSessionQueue.async { [weak self] in
-      let minExposureTime = self?.camera?.getMinExposureTime() ?? 1000
-      completion(NSNumber(value: minExposureTime), nil)
-    }
-  }
-
-  func getMaxExposureTime(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
-    captureSessionQueue.async { [weak self] in
-      let maxExposureTime = self?.camera?.getMaxExposureTime() ?? 1000000
-      completion(NSNumber(value: maxExposureTime), nil)
-    }
-  }
-
-  func setManualIso(_ iso: Int, completion: @escaping (FlutterError?) -> Void) {
-    captureSessionQueue.async { [weak self] in
-      self?.camera?.setManualIso(iso)
-      completion(nil)
-    }
-  }
-
-  func getMinIso(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
-    captureSessionQueue.async { [weak self] in
-      let minIso = self?.camera?.getMinIso() ?? 100
-      completion(NSNumber(value: minIso), nil)
-    }
-  }
-
-  func getMaxIso(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
-    captureSessionQueue.async { [weak self] in
-      let maxIso = self?.camera?.getMaxIso() ?? 3200
-      completion(NSNumber(value: maxIso), nil)
-    }
-  }
-
-  public func setWhiteBalanceMode(
-    _ mode: FCPPlatformWhiteBalanceMode,
-    completion: @escaping (FlutterError?) -> Void
-  ) {
-    NSLog("🔥🔥🔥 CameraPlugin.setWhiteBalanceMode called with \(mode == .auto ? "auto" : "locked")")
-    captureSessionQueue.async { [weak self] in
-      self?.camera?.setWhiteBalanceMode(mode, withCompletion: completion)
-    }
-  }
-
-  public func setManualColorTemperature(_ colorTemperature: Int, completion: @escaping (FlutterError?) -> Void) {
-    NSLog("🔥🔥🔥 CameraPlugin.setManualColorTemperature called with colorTemperature=\(colorTemperature)K")
-    captureSessionQueue.async { [weak self] in
-      self?.camera?.setManualColorTemperature(colorTemperature)
-      completion(nil)
-    }
-  }
-
-  public func getMinColorTemperature(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
-    captureSessionQueue.async { [weak self] in
-      let minColorTemp = self?.camera?.getMinColorTemperature() ?? 2000
-      completion(NSNumber(value: minColorTemp), nil)
-    }
-  }
-
-  public func getMaxColorTemperature(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
-    captureSessionQueue.async { [weak self] in
-      let maxColorTemp = self?.camera?.getMaxColorTemperature() ?? 8000
-      completion(NSNumber(value: maxColorTemp), nil)
-    }
-  }
-
-  // MARK: - Frame Rate Control
-  public func setFrameRateRange(
-    _ minFrameRate: Int,
-    maxFrameRate: Int,
-    completion: @escaping (FlutterError?) -> Void
+  func setManualExposureTime(
+    exposureTime: Int64, completion: @escaping (Result<Void, any Error>) -> Void
   ) {
     captureSessionQueue.async { [weak self] in
-      self?.camera?.setFrameRateRange(minFrameRate: minFrameRate, maxFrameRate: maxFrameRate, withCompletion: completion)
+      self?.camera?.setManualExposureTime(Int(exposureTime))
+      completion(.success(()))
     }
   }
 
-  public func getSupportedFrameRateRanges(_ completion: @escaping ([FCPPlatformFrameRateRange]?, FlutterError?) -> Void) {
+  func getMinExposureTime(completion: @escaping (Result<Int64, any Error>) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      completion(.success(Int64(self?.camera?.getMinExposureTime() ?? 1000)))
+    }
+  }
+
+  func getMaxExposureTime(completion: @escaping (Result<Int64, any Error>) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      completion(.success(Int64(self?.camera?.getMaxExposureTime() ?? 1_000_000)))
+    }
+  }
+
+  func setManualIso(iso: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setManualIso(Int(iso))
+      completion(.success(()))
+    }
+  }
+
+  func getMinIso(completion: @escaping (Result<Int64, any Error>) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      completion(.success(Int64(self?.camera?.getMinIso() ?? 100)))
+    }
+  }
+
+  func getMaxIso(completion: @escaping (Result<Int64, any Error>) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      completion(.success(Int64(self?.camera?.getMaxIso() ?? 3200)))
+    }
+  }
+
+  func setWhiteBalanceMode(
+    mode: PlatformWhiteBalanceMode,
+    completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setWhiteBalanceMode(mode) { error in
+        if let error {
+          completion(.failure(CameraPlugin.pigeonErrorFromFlutterError(error)))
+        } else {
+          completion(.success(()))
+        }
+      }
+    }
+  }
+
+  func setManualColorTemperature(
+    colorTemperature: Int64,
+    completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setManualColorTemperature(Int(colorTemperature))
+      completion(.success(()))
+    }
+  }
+
+  func getMinColorTemperature(completion: @escaping (Result<Int64, any Error>) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      completion(.success(Int64(self?.camera?.getMinColorTemperature() ?? 2000)))
+    }
+  }
+
+  func getMaxColorTemperature(completion: @escaping (Result<Int64, any Error>) -> Void) {
+    captureSessionQueue.async { [weak self] in
+      completion(.success(Int64(self?.camera?.getMaxColorTemperature() ?? 8000)))
+    }
+  }
+
+  func setFrameRateRange(
+    minFrameRate: Int64,
+    maxFrameRate: Int64,
+    completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setFrameRateRange(
+        minFrameRate: Int(minFrameRate),
+        maxFrameRate: Int(maxFrameRate)
+      ) { error in
+        if let error {
+          completion(.failure(CameraPlugin.pigeonErrorFromFlutterError(error)))
+        } else {
+          completion(.success(()))
+        }
+      }
+    }
+  }
+
+  func getSupportedFrameRateRanges(
+    completion: @escaping (Result<[PlatformFrameRateRange], any Error>) -> Void
+  ) {
     captureSessionQueue.async { [weak self] in
       let ranges = self?.camera?.getSupportedFrameRateRanges() ?? []
-      let platformRanges = ranges.map { range in
-        FCPPlatformFrameRateRange.make(withMinFrameRate: range.0, maxFrameRate: range.1)
+      completion(.success(ranges.map { range in
+        PlatformFrameRateRange(minFrameRate: range.0, maxFrameRate: range.1)
+      }))
+    }
+  }
+
+  func setVideoStabilization(
+    enabled: Bool,
+    completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setVideoStabilization(enabled) { error in
+        if let error {
+          completion(.failure(CameraPlugin.pigeonErrorFromFlutterError(error)))
+        } else {
+          completion(.success(()))
+        }
       }
-      completion(platformRanges, nil)
     }
   }
 
-  // MARK: - Image Stabilization
-  public func setVideoStabilization(_ enabled: Bool, completion: @escaping (FlutterError?) -> Void) {
+  func isVideoStabilizationSupported(
+    completion: @escaping (Result<Bool, any Error>) -> Void
+  ) {
     captureSessionQueue.async { [weak self] in
-      self?.camera?.setVideoStabilization(enabled, withCompletion: completion)
+      completion(.success(self?.camera?.isVideoStabilizationSupported() ?? false))
     }
   }
 
-  public func isVideoStabilizationSupported(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+  func getLensAperture(completion: @escaping (Result<Double, any Error>) -> Void) {
     captureSessionQueue.async { [weak self] in
-      let supported = self?.camera?.isVideoStabilizationSupported() ?? false
-      completion(NSNumber(value: supported), nil)
+      completion(.success(self?.camera?.getLensAperture() ?? 0.0))
     }
   }
 
-  // MARK: - Lens Properties
-  public func getLensAperture(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+  func getFocalLength(completion: @escaping (Result<Double, any Error>) -> Void) {
     captureSessionQueue.async { [weak self] in
-      let aperture = self?.camera?.getLensAperture() ?? 2.0
-      completion(NSNumber(value: aperture), nil)
+      completion(.success(self?.camera?.getFocalLength() ?? 0.0))
     }
   }
 
-  public func getFocalLength(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+  func setTorchLevel(level: Double, completion: @escaping (Result<Void, any Error>) -> Void) {
     captureSessionQueue.async { [weak self] in
-      let focalLength = self?.camera?.getFocalLength() ?? 4.0
-      completion(NSNumber(value: focalLength), nil)
+      self?.camera?.setTorchLevel(level) { error in
+        if let error {
+          completion(.failure(CameraPlugin.pigeonErrorFromFlutterError(error)))
+        } else {
+          completion(.success(()))
+        }
+      }
     }
   }
 
-  // MARK: - Torch Level Control
-  public func setTorchLevel(_ level: Double, completion: @escaping (FlutterError?) -> Void) {
-    captureSessionQueue.async { [weak self] in
-      self?.camera?.setTorchLevel(level, withCompletion: completion)
-    }
-  }
-
-  public func getTorchLevel(_ error: AutoreleasingUnsafeMutablePointer<FlutterError?>) -> NSNumber? {
+  func getTorchLevel() throws -> Double {
     guard let torchLevel = camera?.getTorchLevel() else {
-      error.pointee = FlutterError(code: "CAMERA_ERROR", message: "Camera not available", details: nil)
-      return nil
+      throw PigeonError(code: "CAMERA_ERROR", message: "Camera not available", details: nil)
     }
-    return NSNumber(value: torchLevel)
+    return torchLevel
   }
 
-  public func isTorchLevelSupported(_ error: AutoreleasingUnsafeMutablePointer<FlutterError?>) -> NSNumber? {
+  func isTorchLevelSupported() throws -> Bool {
     guard let isSupported = camera?.isTorchLevelSupported() else {
-      error.pointee = FlutterError(code: "CAMERA_ERROR", message: "Camera not available", details: nil)
-      return nil
+      throw PigeonError(code: "CAMERA_ERROR", message: "Camera not available", details: nil)
     }
-    return NSNumber(value: isSupported)
+    return isSupported
   }
 
-  public func getMaxTorchLevel(_ completion: @escaping (NSNumber?, FlutterError?) -> Void) {
+  func getMaxTorchLevel(completion: @escaping (Result<Double, any Error>) -> Void) {
     captureSessionQueue.async { [weak self] in
-      let maxLevel = self?.camera?.getMaxTorchLevel() ?? 1.0
-      completion(NSNumber(value: maxLevel), nil)
+      completion(.success(self?.camera?.getMaxTorchLevel() ?? 1.0))
     }
   }
 
-  // MARK: - Color Effects
-  public func setColorEffect(_ effect: FCPPlatformColorEffect, completion: @escaping (FlutterError?) -> Void) {
+  func setColorEffect(
+    effect: PlatformColorEffect,
+    completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
     captureSessionQueue.async { [weak self] in
-      self?.camera?.setColorEffect(effect, withCompletion: completion)
+      self?.camera?.setColorEffect(effect) { error in
+        if let error {
+          completion(.failure(CameraPlugin.pigeonErrorFromFlutterError(error)))
+        } else {
+          completion(.success(()))
+        }
+      }
     }
   }
 
-  public func getSupportedColorEffects(_ completion: @escaping ([FCPPlatformColorEffectBox]?, FlutterError?) -> Void) {
+  func getSupportedColorEffects(
+    completion: @escaping (Result<[PlatformColorEffect], any Error>) -> Void
+  ) {
     captureSessionQueue.async { [weak self] in
-      let effects = self?.camera?.getSupportedColorEffects() ?? [.none]
-      let boxedEffects = effects.map { FCPPlatformColorEffectBox(value: $0) }
-      completion(boxedEffects, nil)
-    }
-  }
-  
-  // MARK: - Method Channel Bridge
-  
-  public func handleMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    NSLog("🔥🔥🔥 CameraPlugin.handleMethodCall: \(call.method)")
-    
-    switch call.method {
-    case "setWhiteBalanceMode":
-      handleSetWhiteBalanceMode(call, result: result)
-    case "setManualColorTemperature":
-      handleSetManualColorTemperature(call, result: result)
-    case "getMinColorTemperature":
-      handleGetMinColorTemperature(call, result: result)
-    case "getMaxColorTemperature":
-      handleGetMaxColorTemperature(call, result: result)
-    default:
-      result(FlutterMethodNotImplemented)
-    }
-  }
-  
-  private func handleSetWhiteBalanceMode(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    guard let args = call.arguments as? [String: Any],
-          let modeString = args["mode"] as? String else {
-      result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid arguments for setWhiteBalanceMode", details: nil))
-      return
-    }
-    
-    let mode: FCPPlatformWhiteBalanceMode
-    switch modeString {
-    case "auto":
-      mode = .auto
-    case "locked":
-      mode = .locked
-    default:
-      result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid white balance mode: \(modeString)", details: nil))
-      return
-    }
-    
-    NSLog("🔥🔥🔥 Method channel setWhiteBalanceMode: \(modeString)")
-    setWhiteBalanceMode(mode) { error in
-      if let error = error {
-        result(error)
-      } else {
-        result(nil)
-      }
-    }
-  }
-  
-  private func handleSetManualColorTemperature(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    guard let args = call.arguments as? [String: Any],
-          let colorTemperature = args["colorTemperature"] as? Int else {
-      result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid arguments for setManualColorTemperature", details: nil))
-      return
-    }
-    
-    NSLog("🔥🔥🔥 Method channel setManualColorTemperature: \(colorTemperature)K")
-    setManualColorTemperature(colorTemperature) { error in
-      if let error = error {
-        result(error)
-      } else {
-        result(nil)
-      }
-    }
-  }
-  
-  private func handleGetMinColorTemperature(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    getMinColorTemperature { value, error in
-      if let error = error {
-        result(error)
-      } else {
-        result(value)
-      }
-    }
-  }
-  
-  private func handleGetMaxColorTemperature(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    getMaxColorTemperature { value, error in
-      if let error = error {
-        result(error)
-      } else {
-        result(value)
-      }
+      completion(.success(self?.camera?.getSupportedColorEffects() ?? [.none]))
     }
   }
 }

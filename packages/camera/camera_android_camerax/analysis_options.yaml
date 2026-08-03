@@ -9,6 +9,8 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - test/enforce_tracked_skills_prevent_publishing_rule.dart
+    - test/validate_skills_test.dart
 
 dart_code_linter:
   metrics:
