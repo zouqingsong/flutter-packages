@@ -3,7 +3,11 @@
 // found in the LICENSE file.
 
 import AVFoundation
-import Flutter
+#if os(iOS)
+  import Flutter
+#elseif os(macOS)
+  import FlutterMacOS
+#endif
 import Foundation
 
 /// The completion handler block for save photo operations.

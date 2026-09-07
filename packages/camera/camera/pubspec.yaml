@@ -17,6 +17,8 @@ flutter:
         default_package: camera_android_camerax
       ios:
         default_package: camera_avfoundation
+      macos:
+        default_package: camera_avfoundation
       web:
         default_package: camera_web
 

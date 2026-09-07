@@ -5,7 +5,12 @@
 import AVFoundation
 import CoreMedia
 import CoreMotion
-import Flutter
+#if os(iOS)
+  import Flutter
+  import UIKit
+#elseif os(macOS)
+  import FlutterMacOS
+#endif
 
 final class DefaultCamera: NSObject, Camera {
   var dartAPI: CameraEventApi?
@@ -57,7 +62,9 @@ final class DefaultCamera: NSObject, Camera {
   private let videoDimensionsConverter: VideoDimensionsConverter
 
   private let deviceOrientationProvider: DeviceOrientationProvider
-  private let motionManager = CMMotionManager()
+  #if os(iOS)
+    private let motionManager = CMMotionManager()
+  #endif
 
   private(set) var captureDevice: CaptureDevice
   // Setter exposed for tests.
@@ -151,9 +158,12 @@ final class DefaultCamera: NSObject, Camera {
     ]
     captureVideoOutput.alwaysDiscardsLateVideoFrames = true
 
-    // Setup video capture connection.
+    // Setup video capture connection. Only the video port may feed a video data output; on macOS
+    // a UVC device also exposes closed-caption and metadata ports, and including them yields a
+    // connection that reports itself active but never delivers sample buffers.
+    let videoPorts = captureVideoInput.ports.filter { $0.mediaType == .video }
     let connection = AVCaptureConnection(
-      inputPorts: captureVideoInput.ports,
+      inputPorts: videoPorts.isEmpty ? captureVideoInput.ports : videoPorts,
       output: captureVideoOutput.avOutput)
 
     if captureDevice.position == .front {
@@ -204,7 +214,9 @@ final class DefaultCamera: NSObject, Camera {
 
     videoCaptureSession.addOutput(capturePhotoOutput.avOutput)
 
-    motionManager.startAccelerometerUpdates()
+    #if os(iOS)
+      motionManager.startAccelerometerUpdates()
+    #endif
 
     if configuration.mediaSettings.framesPerSecond != nil {
       // The frame rate can be changed only on a locked for configuration device.
@@ -276,7 +288,11 @@ final class DefaultCamera: NSObject, Camera {
     switch resolutionPreset {
     case .max:
       if let bestFormat = highestResolutionFormat(forCaptureDevice: captureDevice) {
-        videoCaptureSession.sessionPreset = .inputPriority
+        #if os(iOS)
+          videoCaptureSession.sessionPreset = .inputPriority
+        #else
+          videoCaptureSession.sessionPreset = .high
+        #endif
         do {
           try captureDevice.lockForConfiguration()
           // Set the best device format found and finish the device configuration.
@@ -399,12 +415,14 @@ final class DefaultCamera: NSObject, Camera {
       let audioOutput = AVCaptureAudioDataOutput()
 
       let block = {
-        // Set up options implicit to AVAudioSessionCategoryPlayback to avoid conflicts with other
-        // plugins like video_player.
-        DefaultCamera.upgradeAudioSessionCategory(
-          requestedCategory: .playAndRecord,
-          options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowAirPlay]
-        )
+        #if os(iOS)
+          // Set up options implicit to AVAudioSessionCategoryPlayback to avoid conflicts with other
+          // plugins like video_player.
+          DefaultCamera.upgradeAudioSessionCategory(
+            requestedCategory: .playAndRecord,
+            options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowAirPlay]
+          )
+        #endif
       }
 
       if !Thread.isMainThread {
@@ -438,10 +456,11 @@ final class DefaultCamera: NSObject, Camera {
   // ability to play in silent mode or ability to record audio but never disables it,
   // that could affect other plugins which depend on this global state. Only change
   // category or options if there is change to prevent unnecessary lags and silence.
-  private static func upgradeAudioSessionCategory(
-    requestedCategory: AVAudioSession.Category,
-    options: AVAudioSession.CategoryOptions
-  ) {
+  #if os(iOS)
+    private static func upgradeAudioSessionCategory(
+      requestedCategory: AVAudioSession.Category,
+      options: AVAudioSession.CategoryOptions
+    ) {
     let playCategories: Set<AVAudioSession.Category> = [.playback, .playAndRecord]
     let recordCategories: Set<AVAudioSession.Category> = [.record, .playAndRecord]
     let requiredCategories: Set<AVAudioSession.Category> = [
@@ -470,6 +489,7 @@ final class DefaultCamera: NSObject, Camera {
 
     try? AVAudioSession.sharedInstance().setCategory(finalCategory, options: finalOptions)
   }
+  #endif
 
   func reportInitializationState() {
     // Get all the state on the current thread, not the main thread.
@@ -871,11 +891,13 @@ final class DefaultCamera: NSObject, Camera {
     switch exposureMode {
     case .locked:
       // AVCaptureExposureMode.autoExpose automatically adjusts the exposure one time, and then locks exposure for the device
-      captureDevice.exposureMode = .autoExpose
+      if captureDevice.isExposureModeSupported(.autoExpose) {
+        captureDevice.exposureMode = .autoExpose
+      }
     case .auto:
       if captureDevice.isExposureModeSupported(.continuousAutoExposure) {
         captureDevice.exposureMode = .continuousAutoExposure
-      } else {
+      } else if captureDevice.isExposureModeSupported(.autoExpose) {
         captureDevice.exposureMode = .autoExpose
       }
     @unknown default:
@@ -1032,30 +1054,49 @@ final class DefaultCamera: NSObject, Camera {
     _ mode: PlatformVideoStabilizationMode,
     withCompletion completion: @escaping (Result<Void, any Error>) -> Void
   ) {
-    let stabilizationMode = getAvCaptureVideoStabilizationMode(mode)
+    #if os(iOS)
+      let stabilizationMode = getAvCaptureVideoStabilizationMode(mode)
 
-    guard captureDevice.isVideoStabilizationModeSupported(stabilizationMode) else {
-      completion(
-        .failure(
-          PigeonError(
-            code: "VIDEO_STABILIZATION_ERROR",
-            message: "Unavailable video stabilization mode.",
-            details: [
-              "requested_mode": stabilizationMode.rawValue
-            ]
-          ))
-      )
-      return
-    }
-    if let connection = captureVideoOutput.connection(with: .video) {
-      connection.preferredVideoStabilizationMode = stabilizationMode
-    }
-    completion(.success(()))
+      guard captureDevice.isVideoStabilizationModeSupported(stabilizationMode) else {
+        completion(
+          .failure(
+            PigeonError(
+              code: "VIDEO_STABILIZATION_ERROR",
+              message: "Unavailable video stabilization mode.",
+              details: [
+                "requested_mode": stabilizationMode.rawValue
+              ]
+            ))
+        )
+        return
+      }
+      if let connection = captureVideoOutput.connection(with: .video) {
+        connection.preferredVideoStabilizationMode = stabilizationMode
+      }
+      completion(.success(()))
+    #else
+      guard mode == .off else {
+        completion(
+          .failure(
+            PigeonError(
+              code: "VIDEO_STABILIZATION_ERROR",
+              message: "Video stabilization is not supported on macOS.",
+              details: nil
+            ))
+        )
+        return
+      }
+      completion(.success(()))
+    #endif
   }
 
   func isVideoStabilizationModeSupported(_ mode: PlatformVideoStabilizationMode) -> Bool {
-    let stabilizationMode = getAvCaptureVideoStabilizationMode(mode)
-    return captureDevice.isVideoStabilizationModeSupported(stabilizationMode)
+    #if os(iOS)
+      let stabilizationMode = getAvCaptureVideoStabilizationMode(mode)
+      return captureDevice.isVideoStabilizationModeSupported(stabilizationMode)
+    #else
+      return mode == .off
+    #endif
   }
 
   func setFlashMode(
@@ -1122,11 +1163,14 @@ final class DefaultCamera: NSObject, Camera {
     completion(.success(()))
   }
 
+  // The manual controls below have no AVFoundation equivalent on macOS, including for external
+  // UVC devices; they are no-ops there and are driven over the camera's WebSocket channel instead.
   func setManualFocusDistance(_ distance: Double) {
-    guard let device = captureDevice as? AVCaptureDevice else {
-      print("❌ Cannot access AVCaptureDevice for manual focus")
-      return
-    }
+    #if os(iOS)
+      guard let device = captureDevice as? AVCaptureDevice else {
+        print("❌ Cannot access AVCaptureDevice for manual focus")
+        return
+      }
     
     print("📱 Device: \(device.localizedName)")
     print("📱 Position: \(device.position.rawValue)")
@@ -1165,13 +1209,15 @@ final class DefaultCamera: NSObject, Camera {
     } catch {
       print("❌ Failed to set manual focus distance: \(error)")
     }
+    #endif
   }
 
   func setManualExposureTime(_ exposureTime: Int) {
-    guard let device = captureDevice as? AVCaptureDevice else {
-      print("Cannot access AVCaptureDevice for manual exposure")
-      return
-    }
+    #if os(iOS)
+      guard let device = captureDevice as? AVCaptureDevice else {
+        print("Cannot access AVCaptureDevice for manual exposure")
+        return
+      }
     
     guard device.isExposureModeSupported(.custom) else {
       print("Manual exposure not supported on this device")
@@ -1208,13 +1254,15 @@ final class DefaultCamera: NSObject, Camera {
     } catch {
       print("Failed to set manual exposure time: \(error)")
     }
+    #endif
   }
 
   func setManualIso(_ iso: Int) {
-    guard let device = captureDevice as? AVCaptureDevice else {
-      print("Cannot access AVCaptureDevice for manual ISO")
-      return
-    }
+    #if os(iOS)
+      guard let device = captureDevice as? AVCaptureDevice else {
+        print("Cannot access AVCaptureDevice for manual ISO")
+        return
+      }
     
     guard device.isExposureModeSupported(.custom) else {
       print("Manual exposure not supported on this device")
@@ -1242,6 +1290,7 @@ final class DefaultCamera: NSObject, Camera {
     } catch {
       print("Failed to set manual ISO: \(error)")
     }
+    #endif
   }
 
   func setWhiteBalanceMode(
@@ -1286,13 +1335,14 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   func setManualColorTemperature(_ colorTemperature: Int) {
-    guard let device = captureDevice as? AVCaptureDevice else {
-      return
-    }
+    #if os(iOS)
+      guard let device = captureDevice as? AVCaptureDevice else {
+        return
+      }
 
-    guard device.isWhiteBalanceModeSupported(.locked) else {
-      return
-    }
+      guard device.isWhiteBalanceModeSupported(.locked) else {
+        return
+      }
 
     do {
       try device.lockForConfiguration()
@@ -1318,6 +1368,7 @@ final class DefaultCamera: NSObject, Camera {
     } catch {
       // Best-effort behavior to match existing manual control semantics.
     }
+    #endif
   }
 
   func getMinColorTemperature() -> Int {
@@ -1368,32 +1419,50 @@ final class DefaultCamera: NSObject, Camera {
     _ enabled: Bool,
     withCompletion completion: @escaping (_ error: FlutterError?) -> Void
   ) {
-    guard let connection = captureVideoOutput.connection(with: .video) else {
-      completion(nil)
-      return
-    }
-
-    if enabled {
-      if captureDevice.isVideoStabilizationModeSupported(.standard) {
-        connection.preferredVideoStabilizationMode = .standard
+    #if os(iOS)
+      guard let connection = captureVideoOutput.connection(with: .video) else {
         completion(nil)
+        return
+      }
+
+      if enabled {
+        if captureDevice.isVideoStabilizationModeSupported(.standard) {
+          connection.preferredVideoStabilizationMode = .standard
+          completion(nil)
+        } else {
+          completion(
+            FlutterError(
+              code: "videoStabilizationUnsupported",
+              message: "Video stabilization is not supported",
+              details: nil
+            )
+          )
+        }
       } else {
+        connection.preferredVideoStabilizationMode = .off
+        completion(nil)
+      }
+    #else
+      if enabled {
         completion(
           FlutterError(
             code: "videoStabilizationUnsupported",
-            message: "Video stabilization is not supported",
+            message: "Video stabilization is not supported on macOS",
             details: nil
           )
         )
+      } else {
+        completion(nil)
       }
-    } else {
-      connection.preferredVideoStabilizationMode = .off
-      completion(nil)
-    }
+    #endif
   }
 
   func isVideoStabilizationSupported() -> Bool {
-    return captureDevice.isVideoStabilizationModeSupported(.standard)
+    #if os(iOS)
+      return captureDevice.isVideoStabilizationModeSupported(.standard)
+    #else
+      return false
+    #endif
   }
 
   func getLensAperture() -> Double {
@@ -1401,10 +1470,14 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   func getFocalLength() -> Double {
-    guard let device = captureDevice as? AVCaptureDevice else {
+    #if os(iOS)
+      guard let device = captureDevice as? AVCaptureDevice else {
+        return 0.0
+      }
+      return Double(device.activeFormat.videoFieldOfView)
+    #else
       return 0.0
-    }
-    return Double(device.activeFormat.videoFieldOfView)
+    #endif
   }
 
   func setTorchLevel(
@@ -1494,45 +1567,63 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   func getMinExposureTime() -> Int {
-    guard let device = captureDevice as? AVCaptureDevice else {
-      return 1000 // Default 1ms in microseconds
-    }
-    
-    let activeFormat = device.activeFormat
-    let minExposure = activeFormat.minExposureDuration
-    // Convert CMTime to microseconds
-    let microseconds = Int((Double(minExposure.value) / Double(minExposure.timescale)) * 1_000_000)
-    return microseconds
+    #if os(iOS)
+      guard let device = captureDevice as? AVCaptureDevice else {
+        return 1000  // Default 1ms in microseconds
+      }
+
+      let activeFormat = device.activeFormat
+      let minExposure = activeFormat.minExposureDuration
+      // Convert CMTime to microseconds
+      let microseconds = Int(
+        (Double(minExposure.value) / Double(minExposure.timescale)) * 1_000_000)
+      return microseconds
+    #else
+      return 1000
+    #endif
   }
 
   func getMaxExposureTime() -> Int {
-    guard let device = captureDevice as? AVCaptureDevice else {
-      return 1000000 // Default 1s in microseconds
-    }
-    
-    let activeFormat = device.activeFormat
-    let maxExposure = activeFormat.maxExposureDuration
-    // Convert CMTime to microseconds
-    let microseconds = Int((Double(maxExposure.value) / Double(maxExposure.timescale)) * 1_000_000)
-    return microseconds
+    #if os(iOS)
+      guard let device = captureDevice as? AVCaptureDevice else {
+        return 1000000  // Default 1s in microseconds
+      }
+
+      let activeFormat = device.activeFormat
+      let maxExposure = activeFormat.maxExposureDuration
+      // Convert CMTime to microseconds
+      let microseconds = Int(
+        (Double(maxExposure.value) / Double(maxExposure.timescale)) * 1_000_000)
+      return microseconds
+    #else
+      return 1000000
+    #endif
   }
 
   func getMinIso() -> Int {
-    guard let device = captureDevice as? AVCaptureDevice else {
-      return 100 // Default minimum ISO
-    }
-    
-    let activeFormat = device.activeFormat
-    return Int(activeFormat.minISO)
+    #if os(iOS)
+      guard let device = captureDevice as? AVCaptureDevice else {
+        return 100  // Default minimum ISO
+      }
+
+      let activeFormat = device.activeFormat
+      return Int(activeFormat.minISO)
+    #else
+      return 100
+    #endif
   }
 
   func getMaxIso() -> Int {
-    guard let device = captureDevice as? AVCaptureDevice else {
-      return 3200 // Default maximum ISO
-    }
-    
-    let activeFormat = device.activeFormat
-    return Int(activeFormat.maxISO)
+    #if os(iOS)
+      guard let device = captureDevice as? AVCaptureDevice else {
+        return 3200  // Default maximum ISO
+      }
+
+      let activeFormat = device.activeFormat
+      return Int(activeFormat.maxISO)
+    #else
+      return 3200
+    #endif
   }
 
   func pausePreview() {
@@ -1936,6 +2027,8 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   deinit {
-    motionManager.stopAccelerometerUpdates()
+    #if os(iOS)
+      motionManager.stopAccelerometerUpdates()
+    #endif
   }
 }

@@ -22,8 +22,10 @@ protocol CaptureConnection: NSObjectProtocol {
   /// Corresponds to the `supportsVideoOrientation` property of `AVCaptureConnection`
   var isVideoOrientationSupported: Bool { get }
 
-  /// Corresponds to the preferredVideoStabilizationMode property of `AVCaptureConnection`
-  var preferredVideoStabilizationMode: AVCaptureVideoStabilizationMode { get set }
+  #if os(iOS)
+    /// Corresponds to the preferredVideoStabilizationMode property of `AVCaptureConnection`
+    var preferredVideoStabilizationMode: AVCaptureVideoStabilizationMode { get set }
+  #endif
 
 }
 

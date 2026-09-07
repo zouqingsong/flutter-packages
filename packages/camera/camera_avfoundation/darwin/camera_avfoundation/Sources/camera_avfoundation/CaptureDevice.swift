@@ -54,8 +54,10 @@ protocol CaptureDevice: NSObjectProtocol {
   var videoZoomFactor: CGFloat { get set }
 
   // Video Stabilization
-  func isVideoStabilizationModeSupported(_ videoStabilizationMode: AVCaptureVideoStabilizationMode)
-    -> Bool
+  #if os(iOS)
+    func isVideoStabilizationModeSupported(_ videoStabilizationMode: AVCaptureVideoStabilizationMode)
+      -> Bool
+  #endif
 
   // Camera Properties
   var lensAperture: Float { get }
@@ -97,11 +99,34 @@ extension AVCaptureDevice: CaptureDevice {
 
   var flutterFormats: [CaptureDeviceFormat] { formats }
 
-  func isVideoStabilizationModeSupported(_ videoStabilizationMode: AVCaptureVideoStabilizationMode)
-    -> Bool
-  {
-    return self.activeFormat.isVideoStabilizationModeSupported(videoStabilizationMode)
-  }
+  #if os(iOS)
+    func isVideoStabilizationModeSupported(_ videoStabilizationMode: AVCaptureVideoStabilizationMode)
+      -> Bool
+    {
+      return self.activeFormat.isVideoStabilizationModeSupported(videoStabilizationMode)
+    }
+  #else
+    // AVFoundation on macOS exposes none of the manual capture controls, not even for external
+    // UVC devices, so these resolve to inert values. Such settings are driven over the camera's
+    // WebSocket control channel instead.
+    var minExposureTargetBias: Float { 0 }
+    var maxExposureTargetBias: Float { 0 }
+
+    func setExposureTargetBias(_ bias: Float, completionHandler handler: ((CMTime) -> Void)?) {
+      handler?(CMTime.zero)
+    }
+
+    var maxAvailableVideoZoomFactor: CGFloat { 1 }
+    var minAvailableVideoZoomFactor: CGFloat { 1 }
+    var videoZoomFactor: CGFloat {
+      get { 1 }
+      set {}
+    }
+
+    var lensAperture: Float { 0 }
+    var exposureDuration: CMTime { CMTime.zero }
+    var iso: Float { 0 }
+  #endif
 
 }
 

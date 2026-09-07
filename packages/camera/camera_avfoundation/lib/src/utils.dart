@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'messages.g.dart';
@@ -12,7 +13,9 @@ CameraDescription cameraDescriptionFromPlatform(PlatformCameraDescription camera
   return CameraDescription(
     name: camera.name,
     lensDirection: cameraLensDirectionFromPlatform(camera.lensDirection),
-    sensorOrientation: 90,
+    // iOS sensors are mounted landscape relative to the portrait UI; on macOS
+    // frames are already delivered upright.
+    sensorOrientation: defaultTargetPlatform == TargetPlatform.macOS ? 0 : 90,
     lensType: cameraLensTypeFromPlatform(camera.lensType),
   );
 }

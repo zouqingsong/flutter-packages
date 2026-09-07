@@ -31,6 +31,14 @@ protocol CaptureSession: NSObjectProtocol {
 }
 
 extension AVCaptureSession: CaptureSession {
+  #if os(macOS)
+    // macOS has no AVAudioSession, so there is nothing to configure.
+    var automaticallyConfiguresApplicationAudioSession: Bool {
+      get { false }
+      set {}
+    }
+  #endif
+
   func addInputWithNoConnections(_ input: CaptureInput) {
     addInputWithNoConnections(input.avInput)
   }

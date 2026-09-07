@@ -16,6 +16,10 @@ flutter:
         pluginClass: CameraPlugin
         dartPluginClass: AVFoundationCamera
         sharedDarwinSource: true
+      macos:
+        pluginClass: CameraPlugin
+        dartPluginClass: AVFoundationCamera
+        sharedDarwinSource: true
 
 dependencies:
   camera_platform_interface:

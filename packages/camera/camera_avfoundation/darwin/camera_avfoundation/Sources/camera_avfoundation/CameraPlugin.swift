@@ -3,7 +3,12 @@
 // found in the LICENSE file.
 
 import AVFoundation
-import Flutter
+#if os(iOS)
+  import Flutter
+  import UIKit
+#elseif os(macOS)
+  import FlutterMacOS
+#endif
 
 public final class CameraPlugin: NSObject, FlutterPlugin {
   private let registry: FlutterTextureRegistry
@@ -22,12 +27,19 @@ public final class CameraPlugin: NSObject, FlutterPlugin {
   var camera: Camera?
 
   public static func register(with registrar: FlutterPluginRegistrar) {
-    NSLog("🔥🔥🔥 CameraPlugin.register called - registering method channel")
-    
+    // FlutterMacOS exposes these as properties rather than methods.
+    #if os(iOS)
+      let textureRegistry = registrar.textures()
+      let binaryMessenger = registrar.messenger()
+    #else
+      let textureRegistry = registrar.textures
+      let binaryMessenger = registrar.messenger
+    #endif
+
     let instance = CameraPlugin(
-      registry: registrar.textures(),
-      messenger: registrar.messenger(),
-      globalAPI: CameraGlobalEventApi(binaryMessenger: registrar.messenger()),
+      registry: textureRegistry,
+      messenger: binaryMessenger,
+      globalAPI: CameraGlobalEventApi(binaryMessenger: binaryMessenger),
       deviceDiscoverer: DefaultCameraDeviceDiscoverer(),
       permissionManager: CameraPermissionManager(
         permissionService: DefaultPermissionService()),
@@ -40,7 +52,7 @@ public final class CameraPlugin: NSObject, FlutterPlugin {
       captureSessionQueue: DispatchQueue(label: "io.flutter.camera.captureSessionQueue")
     )
 
-    CameraApiSetup.setUp(binaryMessenger: registrar.messenger(), api: instance)
+    CameraApiSetup.setUp(binaryMessenger: binaryMessenger, api: instance)
   }
 
   init(
@@ -69,18 +81,22 @@ public final class CameraPlugin: NSObject, FlutterPlugin {
     captureSessionQueue.setSpecific(
       key: captureSessionQueueSpecificKey, value: captureSessionQueueSpecificValue)
 
-    UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-    NotificationCenter.default.addObserver(
-      forName: UIDevice.orientationDidChangeNotification,
-      object: UIDevice.current,
-      queue: .main
-    ) { [weak self] notification in
-      self?.orientationChanged(notification)
-    }
+    #if os(iOS)
+      UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+      NotificationCenter.default.addObserver(
+        forName: UIDevice.orientationDidChangeNotification,
+        object: UIDevice.current,
+        queue: .main
+      ) { [weak self] notification in
+        self?.orientationChanged(notification)
+      }
+    #endif
   }
 
   public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
-    UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    #if os(iOS)
+      UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    #endif
   }
 
   private static func pigeonErrorFromNSError(_ error: NSError) -> PigeonError {
@@ -98,21 +114,23 @@ public final class CameraPlugin: NSObject, FlutterPlugin {
   }
 
   func orientationChanged(_ notification: Notification) {
-    guard let device = notification.object as? UIDevice else { return }
-    let orientation = device.orientation
+    #if os(iOS)
+      guard let device = notification.object as? UIDevice else { return }
+      let orientation = device.orientation
 
-    if orientation == .faceUp || orientation == .faceDown {
-      // Do not change when oriented flat.
-      return
-    }
+      if orientation == .faceUp || orientation == .faceDown {
+        // Do not change when oriented flat.
+        return
+      }
 
-    self.captureSessionQueue.async { [weak self] in
-      guard let strongSelf = self else { return }
-      // `Camera.deviceOrientation` must be set on capture session queue.
-      strongSelf.camera?.deviceOrientation = orientation
-      // `CameraPlugin.sendDeviceOrientation` can be called on any queue.
-      strongSelf.sendDeviceOrientation(orientation)
-    }
+      self.captureSessionQueue.async { [weak self] in
+        guard let strongSelf = self else { return }
+        // `Camera.deviceOrientation` must be set on capture session queue.
+        strongSelf.camera?.deviceOrientation = orientation
+        // `CameraPlugin.sendDeviceOrientation` can be called on any queue.
+        strongSelf.sendDeviceOrientation(orientation)
+      }
+    #endif
   }
 
   func sendDeviceOrientation(_ orientation: UIDeviceOrientation) {
@@ -137,11 +155,19 @@ extension CameraPlugin: CameraApi {
     captureSessionQueue.async { [weak self] in
       guard let strongSelf = self else { return }
 
-      let discoveryDevices: [AVCaptureDevice.DeviceType] = [
-        .builtInWideAngleCamera,
-        .builtInTelephotoCamera,
-        .builtInUltraWideCamera,
-      ]
+      #if os(macOS)
+        // UVC cameras attached over USB are only reported under the external device type.
+        let discoveryDevices: [AVCaptureDevice.DeviceType] = [
+          .builtInWideAngleCamera,
+          .external,
+        ]
+      #else
+        let discoveryDevices: [AVCaptureDevice.DeviceType] = [
+          .builtInWideAngleCamera,
+          .builtInTelephotoCamera,
+          .builtInUltraWideCamera,
+        ]
+      #endif
 
       let devices = strongSelf.deviceDiscoverer.discoverySession(
         withDeviceTypes: discoveryDevices,
@@ -179,18 +205,29 @@ extension CameraPlugin: CameraApi {
   }
 
   private func platformLensType(for device: CaptureDevice) -> PlatformCameraLensType {
-    switch device.deviceType {
-    case .builtInWideAngleCamera:
-      return .wide
-    case .builtInTelephotoCamera:
-      return .telephoto
-    case .builtInUltraWideCamera:
-      return .ultraWide
-    case .builtInDualWideCamera:
-      return .wide
-    default:
-      return .unknown
-    }
+    #if os(macOS)
+      // macOS only reports built-in wide angle and external devices; external UVC cameras have
+      // no meaningful lens classification.
+      switch device.deviceType {
+      case .builtInWideAngleCamera:
+        return .wide
+      default:
+        return .unknown
+      }
+    #else
+      switch device.deviceType {
+      case .builtInWideAngleCamera:
+        return .wide
+      case .builtInTelephotoCamera:
+        return .telephoto
+      case .builtInUltraWideCamera:
+        return .ultraWide
+      case .builtInDualWideCamera:
+        return .wide
+      default:
+        return .unknown
+      }
+    #endif
   }
 
   func create(

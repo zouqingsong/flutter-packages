@@ -9,7 +9,8 @@ import PackageDescription
 let package = Package(
   name: "camera_avfoundation",
   platforms: [
-    .iOS("13.0")
+    .iOS("13.0"),
+    .macOS("14.0"),
   ],
   products: [
     .library(

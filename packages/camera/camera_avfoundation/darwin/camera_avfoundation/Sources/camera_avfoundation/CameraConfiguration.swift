@@ -4,7 +4,9 @@
 
 import AVFoundation
 import CoreMedia
-import UIKit
+#if os(iOS)
+  import UIKit
+#endif
 
 /// Factory block returning an FLTCaptureDevice.
 /// Used in tests to inject a video capture device into DefaultCamera.

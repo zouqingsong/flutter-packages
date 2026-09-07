@@ -3,7 +3,10 @@
 // found in the LICENSE file.
 
 import AVFoundation
-import UIKit
+
+#if os(iOS)
+  import UIKit
+#endif
 
 /// Gets AVCaptureFlashMode from PlatformFlashMode.
 /// mode - flash mode.
@@ -77,26 +80,28 @@ func getPixelFormat(for imageFormat: PlatformImageFormatGroup) -> OSType {
   }
 }
 
-/// Gets video stabilization mode from its Pigeon representation.
-/// videoStabilizationMode - the Pigeon video stabilization mode.
-func getAvCaptureVideoStabilizationMode(
-  _ videoStabilizationMode: PlatformVideoStabilizationMode
-) -> AVCaptureVideoStabilizationMode {
+#if os(iOS)
+  /// Gets video stabilization mode from its Pigeon representation.
+  /// videoStabilizationMode - the Pigeon video stabilization mode.
+  func getAvCaptureVideoStabilizationMode(
+    _ videoStabilizationMode: PlatformVideoStabilizationMode
+  ) -> AVCaptureVideoStabilizationMode {
 
-  switch videoStabilizationMode {
-  case .off:
-    return .off
-  case .standard:
-    return .standard
-  case .cinematic:
-    return .cinematic
-  case .cinematicExtended:
-    if #available(iOS 13.0, *) {
-      return .cinematicExtended
-    } else {
+    switch videoStabilizationMode {
+    case .off:
+      return .off
+    case .standard:
+      return .standard
+    case .cinematic:
       return .cinematic
+    case .cinematicExtended:
+      if #available(iOS 13.0, *) {
+        return .cinematicExtended
+      } else {
+        return .cinematic
+      }
+    @unknown default:
+      return .off
     }
-  @unknown default:
-    return .off
   }
-}
+#endif

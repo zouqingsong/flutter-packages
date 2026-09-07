@@ -4,7 +4,11 @@
 
 import AVFoundation
 import CoreMotion
-import Flutter
+#if os(iOS)
+  import Flutter
+#elseif os(macOS)
+  import FlutterMacOS
+#endif
 
 /// A class that manages camera's state and performs camera operations.
 protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,

@@ -3,7 +3,11 @@
 // found in the LICENSE file.
 
 import AVFoundation
-import Flutter
+#if os(iOS)
+  import Flutter
+#elseif os(macOS)
+  import FlutterMacOS
+#endif
 
 /// Completion handler for camera permission requests.
 typealias CameraPermissionRequestCompletionHandler = (PigeonError?) -> Void

@@ -2,7 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import UIKit
+#if os(iOS)
+  import UIKit
+#endif
 
 /// A protocol which provides the current device orientation.
 /// It exists to allow replacing UIDevice in tests.
