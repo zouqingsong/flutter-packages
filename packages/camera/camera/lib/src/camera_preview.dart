@@ -52,11 +52,22 @@ class CameraPreview extends StatelessWidget {
   }
 
   bool _isLandscape() {
+    // Desktop platforms have no device orientation: frames arrive in their natural
+    // orientation, so the preview is never rotated and the aspect ratio is used as-is.
+    if (_isDesktop) {
+      return true;
+    }
     return <DeviceOrientation>[
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ].contains(_getApplicableOrientation());
   }
+
+  bool get _isDesktop =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
 
   int _getQuarterTurns() {
     final turns = <DeviceOrientation, int>{

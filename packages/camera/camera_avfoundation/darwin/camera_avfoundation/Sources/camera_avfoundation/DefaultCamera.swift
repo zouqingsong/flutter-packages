@@ -287,20 +287,29 @@ final class DefaultCamera: NSObject, Camera {
   ) throws {
     switch resolutionPreset {
     case .max:
-      if let bestFormat = highestResolutionFormat(forCaptureDevice: captureDevice) {
-        #if os(iOS)
+      #if os(iOS)
+        if let bestFormat = highestResolutionFormat(forCaptureDevice: captureDevice) {
           videoCaptureSession.sessionPreset = .inputPriority
-        #else
-          videoCaptureSession.sessionPreset = .high
-        #endif
-        do {
-          try captureDevice.lockForConfiguration()
-          // Set the best device format found and finish the device configuration.
-          captureDevice.flutterActiveFormat = bestFormat
-          captureDevice.unlockForConfiguration()
+          do {
+            try captureDevice.lockForConfiguration()
+            // Set the best device format found and finish the device configuration.
+            captureDevice.flutterActiveFormat = bestFormat
+            captureDevice.unlockForConfiguration()
+            break
+          }
+        }
+      #else
+        // macOS has no input-priority preset, so the session preset always governs what is
+        // delivered and setting activeFormat only desynchronises the reported preview size.
+        // Pick the highest preset the session accepts instead.
+        let macOSPresets: [AVCaptureSession.Preset] = [
+          .hd4K3840x2160, .hd1920x1080, .high, .hd1280x720,
+        ]
+        if let preset = macOSPresets.first(where: videoCaptureSession.canSetSessionPreset) {
+          videoCaptureSession.sessionPreset = preset
           break
         }
-      }
+      #endif
       fallthrough
     case .ultraHigh:
       if videoCaptureSession.canSetSessionPreset(.hd4K3840x2160) {
