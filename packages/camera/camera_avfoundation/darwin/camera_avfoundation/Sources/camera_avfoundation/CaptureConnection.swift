@@ -10,19 +10,19 @@ protocol CaptureConnection: NSObjectProtocol {
   /// Corresponds to the `isVideoMirrored` property of `AVCaptureConnection`
   var isVideoMirrored: Bool { get set }
 
-  /// Corresponds to the `videoOrientation` property of `AVCaptureConnection`
-  var videoOrientation: AVCaptureVideoOrientation { get set }
-
   /// Corresponds to the `inputPorts` property of `AVCaptureConnection`
   var inputPorts: [AVCaptureInput.Port] { get }
 
   /// Corresponds to the `supportsVideoMirroring` property of `AVCaptureConnection`
   var isVideoMirroringSupported: Bool { get }
 
-  /// Corresponds to the `supportsVideoOrientation` property of `AVCaptureConnection`
-  var isVideoOrientationSupported: Bool { get }
-
   #if os(iOS)
+    /// Corresponds to the `videoOrientation` property of `AVCaptureConnection`
+    var videoOrientation: AVCaptureVideoOrientation { get set }
+
+    /// Corresponds to the `supportsVideoOrientation` property of `AVCaptureConnection`
+    var isVideoOrientationSupported: Bool { get }
+
     /// Corresponds to the preferredVideoStabilizationMode property of `AVCaptureConnection`
     var preferredVideoStabilizationMode: AVCaptureVideoStabilizationMode { get set }
   #endif

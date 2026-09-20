@@ -735,12 +735,27 @@ final class DefaultCamera: NSObject, Camera {
     }
   }
 
+  /// Enables full-resolution still capture when the max preset is requested,
+  /// using the modern `maxPhotoDimensions` API where available.
+  private func enableMaxResolutionPhoto(_ settings: AVCapturePhotoSettings) {
+    guard mediaSettings.resolutionPreset == .max else { return }
+    if #available(macOS 13.0, iOS 16.0, *) {
+      let dims =
+        captureDevice.flutterActiveFormat.avFormat.supportedMaxPhotoDimensions
+      if let maxDims = dims.max(by: {
+        $0.width * $0.height < $1.width * $1.height
+      }) {
+        settings.maxPhotoDimensions = maxDims
+      }
+    } else {
+      settings.isHighResolutionPhotoEnabled = true
+    }
+  }
+
   func captureToFile(completion: @escaping (Result<String, any Error>) -> Void) {
     var settings = AVCapturePhotoSettings()
 
-    if mediaSettings.resolutionPreset == .max {
-      settings.isHighResolutionPhotoEnabled = true
-    }
+    enableMaxResolutionPhoto(settings)
 
     let fileExtension: String
 
@@ -759,9 +774,7 @@ final class DefaultCamera: NSObject, Camera {
             AVVideoQualityKey: CGFloat(imageQuality) / 100.0
           ],
         ])
-        if mediaSettings.resolutionPreset == .max {
-          settings.isHighResolutionPhotoEnabled = true
-        }
+        enableMaxResolutionPhoto(settings)
       }
     }
 
@@ -831,43 +844,47 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   private func updateOrientation() {
-    guard !isRecording else { return }
+    #if os(iOS)
+      guard !isRecording else { return }
 
-    let orientation =
-      (lockedCaptureOrientation != .unknown)
-      ? lockedCaptureOrientation
-      : deviceOrientation
+      let orientation =
+        (lockedCaptureOrientation != .unknown)
+        ? lockedCaptureOrientation
+        : deviceOrientation
 
-    updateOrientation(orientation, forCaptureOutput: capturePhotoOutput)
-    updateOrientation(orientation, forCaptureOutput: captureVideoOutput)
+      updateOrientation(orientation, forCaptureOutput: capturePhotoOutput)
+      updateOrientation(orientation, forCaptureOutput: captureVideoOutput)
+    #endif
   }
 
-  private func updateOrientation(
-    _ orientation: UIDeviceOrientation, forCaptureOutput captureOutput: CaptureOutput
-  ) {
-    if let connection = captureOutput.connection(with: .video),
-      connection.isVideoOrientationSupported
+  #if os(iOS)
+    private func updateOrientation(
+      _ orientation: UIDeviceOrientation, forCaptureOutput captureOutput: CaptureOutput
+    ) {
+      if let connection = captureOutput.connection(with: .video),
+        connection.isVideoOrientationSupported
+      {
+        connection.videoOrientation = videoOrientation(forDeviceOrientation: orientation)
+      }
+    }
+
+    private func videoOrientation(forDeviceOrientation deviceOrientation: UIDeviceOrientation)
+      -> AVCaptureVideoOrientation
     {
-      connection.videoOrientation = videoOrientation(forDeviceOrientation: orientation)
+      switch deviceOrientation {
+      case .portrait:
+        return .portrait
+      case .landscapeLeft:
+        return .landscapeRight
+      case .landscapeRight:
+        return .landscapeLeft
+      case .portraitUpsideDown:
+        return .portraitUpsideDown
+      default:
+        return .portrait
+      }
     }
-  }
-
-  private func videoOrientation(forDeviceOrientation deviceOrientation: UIDeviceOrientation)
-    -> AVCaptureVideoOrientation
-  {
-    switch deviceOrientation {
-    case .portrait:
-      return .portrait
-    case .landscapeLeft:
-      return .landscapeRight
-    case .landscapeRight:
-      return .landscapeLeft
-    case .portraitUpsideDown:
-      return .portraitUpsideDown
-    default:
-      return .portrait
-    }
-  }
+  #endif
 
   func lockCaptureOrientation(_ pigeonOrientation: PlatformDeviceOrientation) {
     let orientation = getUIDeviceOrientation(for: pigeonOrientation)
@@ -1658,7 +1675,9 @@ final class DefaultCamera: NSObject, Camera {
 
     captureDevice = videoCaptureDeviceFactory(cameraName)
 
-    let oldConnection = captureVideoOutput.connection(with: .video)
+    #if os(iOS)
+      let oldConnection = captureVideoOutput.connection(with: .video)
+    #endif
 
     // Stop video capture from the old output.
     captureVideoOutput.setSampleBufferDelegate(nil, queue: nil)
@@ -1688,9 +1707,11 @@ final class DefaultCamera: NSObject, Camera {
     }
 
     // Keep the same orientation the old connections had.
-    if let oldConnection = oldConnection, newConnection.isVideoOrientationSupported {
-      newConnection.videoOrientation = oldConnection.videoOrientation
-    }
+    #if os(iOS)
+      if let oldConnection = oldConnection, newConnection.isVideoOrientationSupported {
+        newConnection.videoOrientation = oldConnection.videoOrientation
+      }
+    #endif
 
     // Add the new connections to the session.
     if !videoCaptureSession.canAddInput(captureVideoInput) {
