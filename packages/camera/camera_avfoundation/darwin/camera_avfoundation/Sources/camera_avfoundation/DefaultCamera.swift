@@ -358,6 +358,16 @@ final class DefaultCamera: NSObject, Camera {
       }
     }
 
+    if #available(macOS 13.0, iOS 16.0, *) {
+      // capturePhoto(with:) requires settings.maxPhotoDimensions <= the output's own
+      // maxPhotoDimensions; without raising this ceiling to match the active format,
+      // enableMaxResolutionPhoto's request exceeds it and AVFoundation throws.
+      let supportedDims = captureDevice.flutterActiveFormat.avFormat.supportedMaxPhotoDimensions
+      if let maxDims = supportedDims.max(by: { $0.width * $0.height < $1.width * $1.height }) {
+        capturePhotoOutput.avOutput.maxPhotoDimensions = maxDims
+      }
+    }
+
     let size = videoDimensionsConverter(captureDevice.flutterActiveFormat)
     previewSize = CGSize(width: CGFloat(size.width), height: CGFloat(size.height))
     audioCaptureSession.sessionPreset = videoCaptureSession.sessionPreset
@@ -740,13 +750,9 @@ final class DefaultCamera: NSObject, Camera {
   private func enableMaxResolutionPhoto(_ settings: AVCapturePhotoSettings) {
     guard mediaSettings.resolutionPreset == .max else { return }
     if #available(macOS 13.0, iOS 16.0, *) {
-      let dims =
-        captureDevice.flutterActiveFormat.avFormat.supportedMaxPhotoDimensions
-      if let maxDims = dims.max(by: {
-        $0.width * $0.height < $1.width * $1.height
-      }) {
-        settings.maxPhotoDimensions = maxDims
-      }
+      // Request exactly the output's own ceiling (set in setCaptureSessionPreset) so this
+      // can never exceed it, which would otherwise throw NSInvalidArgumentException.
+      settings.maxPhotoDimensions = capturePhotoOutput.avOutput.maxPhotoDimensions
     } else {
       settings.isHighResolutionPhotoEnabled = true
     }
