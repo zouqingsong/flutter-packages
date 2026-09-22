@@ -89,6 +89,9 @@ final class DefaultCamera: NSObject, Camera {
   private var imageStreamHandler: ImageStreamHandler?
 
   private var previewSize: CGSize?
+  /// Set when the underlying capture device disconnects (e.g. a UVC device switching USB modes)
+  /// so the sample buffer delegate stops touching a session that is no longer backed by hardware.
+  private var isCaptureDeviceDisconnected = false
   var deviceOrientation: UIDeviceOrientation {
     didSet {
       guard deviceOrientation != oldValue else { return }
@@ -187,7 +190,7 @@ final class DefaultCamera: NSObject, Camera {
     videoDimensionsConverter = configuration.videoDimensionsConverter
     deviceOrientationProvider = configuration.deviceOrientationProvider
 
-    captureDevice = videoCaptureDeviceFactory(configuration.initialCameraName)
+    captureDevice = try videoCaptureDeviceFactory(configuration.initialCameraName)
     flashMode = captureDevice.hasFlash ? .auto : .off
 
     capturePhotoOutput = AVCapturePhotoOutput()
@@ -266,6 +269,23 @@ final class DefaultCamera: NSObject, Camera {
         name: AVCaptureSession.runtimeErrorNotification,
         object: session)
     }
+
+    // A USB camera can vanish mid-session (e.g. the FlexionCam switching from UVC to mass
+    // storage mode re-enumerates without a video interface); without this, sample buffer
+    // delivery on the stale device/session can hit unexpected nil state and crash.
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(captureDeviceWasDisconnected),
+      name: .AVCaptureDeviceWasDisconnected,
+      object: captureDevice.avDevice)
+  }
+
+  @objc private func captureDeviceWasDisconnected(notification: NSNotification) {
+    isCaptureDeviceDisconnected = true
+    // Stop touching the writer from the (now dead) sample buffer delegate; the in-progress file
+    // is left as-is since there is no more hardware to flush a clean finishWriting() from.
+    isRecording = false
+    reportErrorMessage("Camera device was disconnected")
   }
 
   @objc private func captureSessionWasInterrupted(notification: NSNotification) {
@@ -1679,7 +1699,17 @@ final class DefaultCamera: NSObject, Camera {
       return
     }
 
-    captureDevice = videoCaptureDeviceFactory(cameraName)
+    do {
+      captureDevice = try videoCaptureDeviceFactory(cameraName)
+    } catch {
+      completion(
+        .failure(
+          PigeonError(
+            code: "VideoError",
+            message: "Unable to find requested video device: \(error)",
+            details: nil)))
+      return
+    }
 
     #if os(iOS)
       let oldConnection = captureVideoOutput.connection(with: .video)
@@ -1807,6 +1837,7 @@ final class DefaultCamera: NSObject, Camera {
     didOutput sampleBuffer: CMSampleBuffer,
     from connection: AVCaptureConnection
   ) {
+    guard !isCaptureDeviceDisconnected else { return }
     if output == captureVideoOutput.avOutput {
       if let newBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
 
@@ -1884,8 +1915,8 @@ final class DefaultCamera: NSObject, Camera {
       if output == captureVideoOutput.avOutput {
         let nextBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)
         let nextSampleTime = CMTimeSubtract(sampleTime, recordingTimeOffset)
-        if nextSampleTime > lastAppendedVideoSampleTime {
-          let _ = videoAdaptor?.append(nextBuffer!, withPresentationTime: nextSampleTime)
+        if let nextBuffer = nextBuffer, nextSampleTime > lastAppendedVideoSampleTime {
+          let _ = videoAdaptor?.append(nextBuffer, withPresentationTime: nextSampleTime)
           lastAppendedVideoSampleTime = nextSampleTime
         }
       } else {

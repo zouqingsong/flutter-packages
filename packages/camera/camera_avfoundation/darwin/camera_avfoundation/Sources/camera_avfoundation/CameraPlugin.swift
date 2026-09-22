@@ -44,8 +44,15 @@ public final class CameraPlugin: NSObject, FlutterPlugin {
       permissionManager: CameraPermissionManager(
         permissionService: DefaultPermissionService()),
       deviceFactory: { name in
-        // TODO(RobertOdrowaz) Implement better error handling and remove non-null assertion
-        AVCaptureDevice(uniqueID: name)!
+        guard let device = AVCaptureDevice(uniqueID: name) else {
+          throw PigeonError(
+            code: "CameraAccessDenied",
+            message: "No camera device found for id \(name); it may have been disconnected "
+              + "or switched to a mode where it is no longer available as a camera (e.g. USB "
+              + "mass storage mode).",
+            details: nil)
+        }
+        return device
       },
       captureSessionFactory: { AVCaptureSession() },
       captureDeviceInputFactory: DefaultCaptureDeviceInputFactory(),
