@@ -112,6 +112,7 @@ class CameraWindows extends CameraPlatform {
         false,
         FocusMode.auto,
         false,
+        WhiteBalanceMode.auto,
       ),
     );
   }
