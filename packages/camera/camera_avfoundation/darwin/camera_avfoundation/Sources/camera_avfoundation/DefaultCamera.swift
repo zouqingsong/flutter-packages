@@ -482,6 +482,15 @@ final class DefaultCamera: NSObject, Camera {
           isAudioSetup = false
         }
       }
+
+      // The input and output only exist from here on, so the session has to be
+      // started now, and `startRunning()` blocks until it is up. Recording
+      // starts at the first video sample and drops samples while the audio
+      // session is not running, so without this the video freezes at its start
+      // for as long as the audio takes to come up (measured: 0.7 s).
+      if isAudioSetup && !audioCaptureSession.isRunning {
+        audioCaptureSession.startRunning()
+      }
     } catch let error as NSError {
       reportErrorMessage(error.description)
     }
@@ -1856,8 +1865,14 @@ final class DefaultCamera: NSObject, Camera {
 
     handleSampleBufferStreaming(sampleBuffer)
 
+    // Video does not wait for the audio session. A microphone that is slow to
+    // come up, busy or interrupted used to make the writer skip every video
+    // sample until it was running, which froze the start of the recording for
+    // as long as that took (measured: 0.7 s). Audio samples are still only
+    // written while their own session runs, so the two tracks keep their real
+    // capture times and stay in sync.
     if isRecording && !isRecordingPaused && videoCaptureSession.isRunning
-      && audioCaptureSession.isRunning
+      && (output == captureVideoOutput.avOutput || audioCaptureSession.isRunning)
     {
       if videoWriter?.status == .failed, let error = videoWriter?.error {
         reportErrorMessage("\(error)")
