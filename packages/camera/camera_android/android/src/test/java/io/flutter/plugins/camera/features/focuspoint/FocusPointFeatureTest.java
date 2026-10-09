@@ -143,14 +143,37 @@ public class FocusPointFeatureTest {
     }
   }
 
-  @Test(expected = AssertionError.class)
-  public void setValue_shouldThrowAssertionErrorWhenNoValidBoundariesAreSet() {
+  @Test
+  public void setValue_shouldBeKeptWhenNoBoundariesAreSetYet() {
+    // The boundaries arrive with the first capture session, so a point can reach
+    // this feature before them. It used to throw, which killed the process while
+    // the user was tapping the preview; the point is remembered instead, and
+    // setCameraBoundaries() turns it into a rectangle as soon as it can.
     CameraProperties mockCameraProperties = mock(CameraProperties.class);
     when(mockCameraProperties.getControlMaxRegionsAutoFocus()).thenReturn(1);
     FocusPointFeature focusPointFeature =
         new FocusPointFeature(mockCameraProperties, mockSensorOrientationFeature);
 
-    focusPointFeature.setValue(new Point(0.5, 0.5));
+    Point point = new Point(0.5, 0.5);
+    focusPointFeature.setValue(point);
+
+    assertEquals(point, focusPointFeature.getValue());
+
+    try (MockedStatic<CameraRegionUtils> mockedCameraRegionUtils =
+        Mockito.mockStatic(CameraRegionUtils.class)) {
+
+      Size mockedCameraBoundaries = mock(Size.class);
+      focusPointFeature.setCameraBoundaries(mockedCameraBoundaries);
+
+      mockedCameraRegionUtils.verify(
+          () ->
+              CameraRegionUtils.convertPointToMeteringRectangle(
+                  mockedCameraBoundaries,
+                  0.5,
+                  0.5,
+                  PlatformChannel.DeviceOrientation.LANDSCAPE_LEFT),
+          times(1));
+    }
   }
 
   @Test

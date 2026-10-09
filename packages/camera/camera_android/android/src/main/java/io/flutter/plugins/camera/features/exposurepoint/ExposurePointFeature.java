@@ -7,6 +7,7 @@ package io.flutter.plugins.camera.features.exposurepoint;
 import android.annotation.SuppressLint;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.MeteringRectangle;
+import android.util.Log;
 import android.util.Size;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,6 +21,8 @@ import io.flutter.plugins.camera.features.sensororientation.SensorOrientationFea
 
 /** Exposure point controls where in the frame exposure metering will come from. */
 public class ExposurePointFeature extends CameraFeature<Point> {
+
+  private static final String TAG = "ExposurePointFeature";
 
   private Size cameraBoundaries;
   @Nullable private Point exposurePoint;
@@ -97,10 +100,12 @@ public class ExposurePointFeature extends CameraFeature<Point> {
 
   private void buildExposureRectangle() {
     if (this.cameraBoundaries == null) {
-      throw new AssertionError(
-          "The cameraBoundaries should be set (using"
-              + " `ExposurePointFeature.setCameraBoundaries(Size)`) before updating the exposure"
-              + " point.");
+      // Same as the focus point: the boundaries arrive with the first capture
+      // session, and an exposure point asked for before that is remembered rather
+      // than fatal. See FocusPointFeature.buildFocusRectangle().
+      Log.w(TAG, "Exposure point ignored: camera boundaries are not known yet.");
+      this.exposureRectangle = null;
+      return;
     }
     if (this.exposurePoint == null) {
       this.exposureRectangle = null;

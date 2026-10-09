@@ -7,6 +7,7 @@ package io.flutter.plugins.camera.features.focuspoint;
 import android.annotation.SuppressLint;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.MeteringRectangle;
+import android.util.Log;
 import android.util.Size;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -19,6 +20,8 @@ import io.flutter.plugins.camera.features.sensororientation.SensorOrientationFea
 
 /** Focus point controls where in the frame focus will come from. */
 public class FocusPointFeature extends CameraFeature<Point> {
+
+  private static final String TAG = "FocusPointFeature";
 
   private Size cameraBoundaries;
   @Nullable private Point focusPoint;
@@ -85,9 +88,16 @@ public class FocusPointFeature extends CameraFeature<Point> {
 
   private void buildFocusRectangle() {
     if (this.cameraBoundaries == null) {
-      throw new AssertionError(
-          "The cameraBoundaries should be set (using `FocusPointFeature.setCameraBoundaries(Size)`)"
-              + " before updating the focus point.");
+      // No boundaries yet, so a point cannot be turned into a rectangle. This used
+      // to throw, which took the whole app down: the boundaries are set while a
+      // capture session is created (Camera.createCaptureSession), so a tap that
+      // arrives before the first session is configured - on a preview that is
+      // already showing frames, or a point restored at startup - hit it. The point
+      // is kept, and setCameraBoundaries() builds the rectangle as soon as the
+      // boundaries exist. A dropped focus tap beats a crash.
+      Log.w(TAG, "Focus point ignored: camera boundaries are not known yet.");
+      this.focusRectangle = null;
+      return;
     }
     if (this.focusPoint == null) {
       this.focusRectangle = null;

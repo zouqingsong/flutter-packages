@@ -142,14 +142,36 @@ public class ExposurePointFeatureTest {
     }
   }
 
-  @Test(expected = AssertionError.class)
-  public void setValue_shouldThrowAssertionErrorWhenNoValidBoundariesAreSet() {
+  @Test
+  public void setValue_shouldBeKeptWhenNoBoundariesAreSetYet() {
+    // Same contract as the focus point: the boundaries arrive with the first
+    // capture session, and a point that arrives before them is remembered rather
+    // than fatal. See FocusPointFeatureTest.setValue_shouldBeKeptWhenNoBoundariesAreSetYet.
     CameraProperties mockCameraProperties = mock(CameraProperties.class);
     when(mockCameraProperties.getControlMaxRegionsAutoExposure()).thenReturn(1);
     ExposurePointFeature exposurePointFeature =
         new ExposurePointFeature(mockCameraProperties, mockSensorOrientationFeature);
 
-    exposurePointFeature.setValue(new Point(0.5, 0.5));
+    Point point = new Point(0.5, 0.5);
+    exposurePointFeature.setValue(point);
+
+    assertEquals(point, exposurePointFeature.getValue());
+
+    try (MockedStatic<CameraRegionUtils> mockedCameraRegionUtils =
+        Mockito.mockStatic(CameraRegionUtils.class)) {
+
+      Size mockedCameraBoundaries = mock(Size.class);
+      exposurePointFeature.setCameraBoundaries(mockedCameraBoundaries);
+
+      mockedCameraRegionUtils.verify(
+          () ->
+              CameraRegionUtils.convertPointToMeteringRectangle(
+                  mockedCameraBoundaries,
+                  0.5,
+                  0.5,
+                  PlatformChannel.DeviceOrientation.LANDSCAPE_LEFT),
+          times(1));
+    }
   }
 
   @Test
