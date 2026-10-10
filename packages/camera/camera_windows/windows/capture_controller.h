@@ -230,6 +230,10 @@ class CaptureControllerImpl : public CaptureController,
   ComPtr<IMFDXGIDeviceManager> dxgi_device_manager_;
   ComPtr<ID3D11Device> dx11_device_;
   ComPtr<IMFMediaType> base_capture_media_type_;
+  // The media type a recording is configured with: the capture type above
+  // narrowed to the resolution preset, because a clip is written frame after
+  // frame at whatever size it was set up for.
+  ComPtr<IMFMediaType> base_record_media_type_;
   ComPtr<IMFMediaType> base_preview_media_type_;
   ComPtr<IMFMediaSource> video_source_;
   ComPtr<IMFMediaSource> audio_source_;

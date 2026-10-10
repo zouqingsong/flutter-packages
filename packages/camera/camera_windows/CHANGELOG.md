@@ -1,5 +1,22 @@
 ## NEXT
 
+* Fixes video recording failing to start on cameras the app did not configure
+  media settings for.
+  The H.264 encoder requires a bitrate on its output media type, and the plugin
+  only set one when the caller asked for a rate; without it the capture engine
+  refuses the type the moment recording starts, surfacing as `camera_error: The
+  data specified for the media type is invalid, inconsistent, or not supported by
+  this object`. A rate is now derived from the frame size and frame rate when the
+  caller has none, and the pixel aspect ratio and interlace mode are filled in
+  when the camera's own type leaves them out.
+* Fixes recordings ignoring the resolution preset.
+  Recording was configured with the largest media type the camera offers whatever
+  preset the app asked for, so a clip from a 4K camera came out 4K, while its
+  bitrate came from the settings the app did not set. The recording type now
+  follows the preset, as the preview already did, and falls back to the camera's
+  largest type when nothing fits under it. Photo capture keeps the largest type,
+  because a still has no duration to pay for.
+
 * Updates minimum supported SDK version to Flutter 3.38/Dart 3.10.
 
 ## 0.2.6+4

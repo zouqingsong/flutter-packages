@@ -15,6 +15,13 @@ namespace camera_windows {
 
 using Microsoft::WRL::ComPtr;
 
+// Ceiling, floor and fallback for a bitrate the caller did not choose. 6 Mbps is
+// the 1080p30 figure from the heuristic below, for a camera whose frame size the
+// plugin could not read.
+constexpr UINT32 kMinimumVideoBitrate = 2000000;
+constexpr UINT32 kMaximumVideoBitrate = 40000000;
+constexpr UINT32 kDefaultVideoBitrate = 6000000;
+
 // Initializes media type for video capture.
 HRESULT BuildMediaTypeForVideoCapture(IMFMediaType* src_media_type,
                                       IMFMediaType** video_record_media_type,
@@ -130,6 +137,67 @@ inline HRESULT SetAudioBitrate(IMFMediaType* pType, UINT32 bitrate) {
   return pType->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, bitrate);
 }
 
+// A bitrate for an encoder the caller asked nothing of: about 0.1 bits per pixel
+// per frame, which is 6 Mbps at 1080p30, held between 2 and 40 Mbps so that a
+// small picture is not starved and a 4K one is not asked for more than the
+// encoder will write.
+inline UINT32 DefaultVideoBitrate(IMFMediaType* pType) {
+  UINT32 width = 0;
+  UINT32 height = 0;
+  UINT32 numerator = 0;
+  UINT32 denominator = 0;
+  MFGetAttributeSize(pType, MF_MT_FRAME_SIZE, &width, &height);
+  MFGetAttributeRatio(pType, MF_MT_FRAME_RATE, &numerator, &denominator);
+  const double frames_per_second =
+      denominator ? static_cast<double>(numerator) / denominator : 30.0;
+  if (width == 0 || height == 0) {
+    return kDefaultVideoBitrate;
+  }
+  const double bitrate =
+      static_cast<double>(width) * height * frames_per_second * 0.1;
+  if (bitrate < kMinimumVideoBitrate) {
+    return kMinimumVideoBitrate;
+  }
+  if (bitrate > kMaximumVideoBitrate) {
+    return kMaximumVideoBitrate;
+  }
+  return static_cast<UINT32>(bitrate);
+}
+
+// Adds what the H.264 encoder requires of its output type and the camera's own
+// type does not carry.
+//
+// Copied from the camera, a raw video type brings the picture with it: frame
+// size, frame rate and interlace mode. It cannot bring the encoder's own
+// settings, and the encoder refuses a type that is missing any required
+// attribute — which the capture engine reports as MF_E_INVALIDMEDIATYPE the
+// moment recording starts, reaching the app as "the data specified for the media
+// type is invalid, inconsistent, or not supported by this object", a message
+// that names neither the attribute nor the encoder.
+void CompleteEncoderMediaType(IMFMediaType* pType,
+                              const PlatformMediaSettings& media_settings) {
+  if (media_settings.video_bitrate()) {
+    assert(*media_settings.video_bitrate() > 0);
+    SetVideoBitrate(pType, static_cast<UINT32>(*media_settings.video_bitrate()));
+  } else {
+    SetVideoBitrate(pType, DefaultVideoBitrate(pType));
+  }
+
+  UINT32 aspect_numerator = 0;
+  UINT32 aspect_denominator = 0;
+  if (FAILED(MFGetAttributeRatio(pType, MF_MT_PIXEL_ASPECT_RATIO,
+                                 &aspect_numerator, &aspect_denominator)) ||
+      !aspect_denominator) {
+    // Square pixels, which is what a camera that does not say otherwise has.
+    MFSetAttributeRatio(pType, MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+  }
+
+  UINT32 interlace_mode = 0;
+  if (FAILED(pType->GetUINT32(MF_MT_INTERLACE_MODE, &interlace_mode))) {
+    pType->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
+  }
+}
+
 HRESULT RecordHandler::InitRecordSink(IMFCaptureEngine* capture_engine,
                                       IMFMediaType* base_media_type) {
   assert(!file_path_.empty());
@@ -182,11 +250,7 @@ HRESULT RecordHandler::InitRecordSink(IMFCaptureEngine* capture_engine,
                  static_cast<UINT32>(*media_settings_.frames_per_second()), 1);
   }
 
-  if (media_settings_.video_bitrate()) {
-    assert(*media_settings_.video_bitrate() > 0);
-    SetVideoBitrate(video_record_media_type.Get(),
-                    static_cast<UINT32>(*media_settings_.video_bitrate()));
-  }
+  CompleteEncoderMediaType(video_record_media_type.Get(), media_settings_);
 
   DWORD video_record_sink_stream_index;
   hr = record_sink_->AddStream(

@@ -284,6 +284,7 @@ void CaptureControllerImpl::ResetCaptureController() {
   video_source_ = nullptr;
   base_preview_media_type_ = nullptr;
   base_capture_media_type_ = nullptr;
+  base_record_media_type_ = nullptr;
 
   if (dxgi_device_manager_) {
     dxgi_device_manager_->ResetDevice(dx11_device_.Get(),
@@ -489,7 +490,22 @@ HRESULT CaptureControllerImpl::FindBaseMediaTypesForSource(
     return E_FAIL;
   }
 
-  return S_OK;
+  // Recording follows the resolution preset, which the type found above does
+  // not: it is the largest the camera offers, whatever the app asked for, so a
+  // clip from a 4K camera came out 4K. A still keeps that type — it has no
+  // duration to pay for, and the extra pixels are free where the camera has
+  // them.
+  if (FindBestMediaType(
+          (DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_RECORD,
+          source, base_record_media_type_.GetAddressOf(),
+          GetMaxPreviewHeight(), nullptr, nullptr)) {
+    return S_OK;
+  }
+
+  // Nothing at or below the preset: record what the camera does offer rather
+  // than refuse, the way the preview takes the closest type it can find.
+  return base_capture_media_type_.CopyTo(
+      base_record_media_type_.GetAddressOf());
 }
 
 void CaptureControllerImpl::StartRecord(const std::string& file_path) {
@@ -503,7 +519,7 @@ void CaptureControllerImpl::StartRecord(const std::string& file_path) {
 
   HRESULT hr = S_OK;
 
-  if (!base_capture_media_type_) {
+  if (!base_capture_media_type_ || !base_record_media_type_) {
     // Enumerates mediatypes and finds media type for video capture.
     hr = FindBaseMediaTypes();
     if (FAILED(hr)) {
@@ -524,7 +540,7 @@ void CaptureControllerImpl::StartRecord(const std::string& file_path) {
   // Check MF_CAPTURE_ENGINE_RECORD_STARTED event handling for response
   // process.
   hr = record_handler_->StartRecord(file_path, capture_engine_.Get(),
-                                    base_capture_media_type_.Get());
+                                    base_record_media_type_.Get());
   if (FAILED(hr)) {
     // Destroy record handler on error cases to make sure state is resetted.
     record_handler_ = nullptr;
