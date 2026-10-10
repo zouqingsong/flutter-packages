@@ -1,3 +1,10 @@
+## 0.10.12
+
+* Waits for the camera device's `onClosed` callback before stopping the camera's background thread.
+  Closing a camera stopped that thread before the platform had finished, which logged "Handler ...
+  sending message to a Handler on a dead thread" and skipped the plugin's own `onClosed` work —
+  closing the capture session and reporting the close to Dart.
+
 ## 0.10.11
 
 * Adds `setJpegImageQuality` for controlling JPEG compression quality.

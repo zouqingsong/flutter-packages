@@ -75,7 +75,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @FunctionalInterface
 interface ErrorCallback {
@@ -133,6 +135,16 @@ class Camera
   /** An additional thread for running tasks that shouldn't block the UI. */
   private HandlerThread backgroundHandlerThread;
 
+  /**
+   * Completed by {@link CameraDevice.StateCallback#onClosed}, which the framework dispatches on
+   * [backgroundHandler]. Set when the camera is opened and waited on before that thread is stopped,
+   * because the close is asynchronous: quitting first makes the framework post the callback to a
+   * dead looper.
+   */
+  @Nullable private CountDownLatch deviceClosed;
+
+  /** How long {@link #awaitDeviceClosed} waits for the callback before giving up. */
+  private static final long DEVICE_CLOSE_TIMEOUT_MS = 500;
   CameraDeviceWrapper cameraDevice;
   CameraCaptureSession captureSession;
   @VisibleForTesting ImageReader pictureImageReader;
@@ -444,6 +456,7 @@ class Camera
 
     // Open the camera.
     CameraManager cameraManager = CameraUtils.getCameraManager(activity);
+    deviceClosed = new CountDownLatch(1);
     cameraManager.openCamera(
         cameraProperties.getCameraName(),
         new CameraDevice.StateCallback() {
@@ -487,6 +500,13 @@ class Camera
             cameraDevice = null;
             closeCaptureSession();
             dartMessenger.sendCameraClosingEvent();
+
+            // Last: the caller waiting in stopAndReleaseCamera only needs to know that this
+            // callback has run to completion, since it is about to stop this thread.
+            final CountDownLatch closed = deviceClosed;
+            if (closed != null) {
+              closed.countDown();
+            }
           }
 
           @Override
@@ -2148,6 +2168,7 @@ class Camera
 
   private void stopAndReleaseCamera() {
     if (cameraDevice != null) {
+      final CountDownLatch closed = deviceClosed;
       cameraDevice.close();
       cameraDevice = null;
 
@@ -2155,8 +2176,29 @@ class Camera
       // for quickly closing the camera:
       // https://developer.android.com/reference/android/hardware/camera2/CameraCaptureSession#close()
       captureSession = null;
+
+      // The framework dispatches the device's onClosed on this camera's background thread, from its
+      // own worker. Stop that thread before the callback arrives and the framework posts to a dead
+      // looper — logged as "Handler ... sending message to a Handler on a dead thread" — and the
+      // plugin's own onClosed never runs, so the capture session is left unclosed and Dart is never
+      // told the camera is closing. The close is asynchronous, so wait for the callback.
+      awaitDeviceClosed(closed);
     } else {
       closeCaptureSession();
+    }
+  }
+
+  /** Waits briefly for the asynchronous {@link CameraDevice.StateCallback#onClosed} to arrive. */
+  private void awaitDeviceClosed(@Nullable CountDownLatch closed) {
+    if (closed == null) {
+      return;
+    }
+    try {
+      if (!closed.await(DEVICE_CLOSE_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+        Log.w(TAG, "camera device did not report onClosed within " + DEVICE_CLOSE_TIMEOUT_MS + "ms");
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     }
   }
 
