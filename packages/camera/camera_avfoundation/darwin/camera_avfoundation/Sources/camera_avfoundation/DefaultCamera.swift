@@ -813,7 +813,9 @@ final class DefaultCamera: NSObject, Camera {
       }
     }
 
-    if flashMode != .torch {
+    // Setting the flash mode requires macOS 13.0, so it is skipped on earlier
+    // systems rather than forcing the app's deployment target up to 13.0.
+    if #available(macOS 13.0, *), flashMode != .torch {
       settings.flashMode = getAVCaptureFlashMode(for: flashMode)
     }
 

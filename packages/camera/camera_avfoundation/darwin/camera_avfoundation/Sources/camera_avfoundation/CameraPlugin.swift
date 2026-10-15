@@ -163,11 +163,16 @@ extension CameraPlugin: CameraApi {
       guard let strongSelf = self else { return }
 
       #if os(macOS)
-        // UVC cameras attached over USB are only reported under the external device type.
-        let discoveryDevices: [AVCaptureDevice.DeviceType] = [
-          .builtInWideAngleCamera,
-          .external,
-        ]
+        // UVC cameras attached over USB are only reported under the external
+        // device type: `.external` on macOS 14 and newer, `.externalUnknown` on
+        // earlier systems. Requiring `.external` unconditionally would raise the
+        // whole app's deployment target to 14.0.
+        var discoveryDevices: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]
+        if #available(macOS 14.0, *) {
+          discoveryDevices.append(.external)
+        } else {
+          discoveryDevices.append(.externalUnknown)
+        }
       #else
         let discoveryDevices: [AVCaptureDevice.DeviceType] = [
           .builtInWideAngleCamera,

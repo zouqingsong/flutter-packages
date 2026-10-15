@@ -10,7 +10,7 @@ let package = Package(
   name: "camera_avfoundation",
   platforms: [
     .iOS("13.0"),
-    .macOS("14.0"),
+    .macOS("12.0"),
   ],
   products: [
     .library(

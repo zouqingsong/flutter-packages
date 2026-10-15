@@ -1,3 +1,9 @@
+## 0.10.3
+
+* Lowers the minimum supported macOS version to 12.0 by only requesting the
+  `.external` capture device type on macOS 14, and only setting the flash mode on
+  macOS 13.
+
 ## 0.10.2
 
 * Adds `setJpegImageQuality` for controlling JPEG compression quality.
