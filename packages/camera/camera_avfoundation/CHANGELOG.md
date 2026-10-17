@@ -1,3 +1,9 @@
+## 0.10.4
+
+* Records video as H.264 instead of accepting AVFoundation's recommended codec,
+  which is HEVC (hvc1) on devices that support it. HEVC clips prepare but never
+  produce a frame in players with an H.264-only VideoToolbox path.
+
 ## 0.10.3
 
 * Lowers the minimum supported macOS version to 12.0 by only requesting the

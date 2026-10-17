@@ -598,6 +598,14 @@ final class DefaultCamera: NSObject, Camera {
       for: captureVideoOutput
     )
 
+    // Pin the codec to H.264. The recommended settings hand back HEVC (hvc1) on
+    // devices that report it, and an HEVC recording is not decodable by every
+    // consumer of these files: the bundled player's VideoToolbox path builds its
+    // format description from H.264 parameter sets only, so an HEVC clip prepares
+    // (duration and size are known) but never delivers a frame, and DICOM
+    // destinations expect H.264 as well.
+    videoSettings?[AVVideoCodecKey] = AVVideoCodecType.h264
+
     if mediaSettings.videoBitrate != nil || framesPerSecond != nil {
       var compressionProperties: [String: Any] = [:]
 
