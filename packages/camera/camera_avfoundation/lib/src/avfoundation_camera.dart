@@ -272,17 +272,20 @@ class AVFoundationCamera extends CameraPlatform {
   }
 
   void _startStreamListener() {
-    const EventChannel cameraEventChannel =
-        EventChannel('plugins.flutter.io/camera_avfoundation/imageStream');
+    // The host registers this stream through the Pigeon event API
+    // (`CameraImageStreamEventApi.imageDataStream`). Listening on the old
+    // `plugins.flutter.io/camera_avfoundation/imageStream` channel instead is
+    // what produced "No implementation found for method listen": nothing on the
+    // native side has registered that name since the Pigeon migration.
     _platformImageStreamSubscription =
-        cameraEventChannel.receiveBroadcastStream().listen((dynamic imageData) {
+        imageDataStream().listen((PlatformCameraImageData imageData) {
       try {
         _hostApi.receivedImageStreamData();
       } on PlatformException catch (e) {
         throw CameraException(e.code, e.message);
       }
       _frameStreamController!
-          .add(cameraImageFromPlatformData(imageData as PlatformCameraImageData));
+          .add(cameraImageFromPlatformData(imageData));
     });
   }
 

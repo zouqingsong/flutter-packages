@@ -22,6 +22,8 @@ list(APPEND PLUGIN_SOURCES
   "string_utils.cpp"
   "capture_device_info.h"
   "capture_device_info.cpp"
+  "image_stream_handler.h"
+  "image_stream_handler.cpp"
   "messages.g.h"
   "messages.g.cpp"
   "preview_handler.h"

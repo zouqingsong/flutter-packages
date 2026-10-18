@@ -1,5 +1,16 @@
 ## NEXT
 
+* Adds image streaming, so `CameraController.startImageStream` works on
+  Windows.
+  The preview sink already receives every frame as RGB32; the plugin now copies
+  those frames out (decimated to 15 fps, dropped rather than queued when the
+  platform thread is behind) and hands them to Dart as one `bgra8888` plane,
+  which is what the platform interface expects and what the iOS implementation
+  reports. Control and frames both travel over one message channel
+  (`plugins.flutter.io/camera_windows/imageStream`), and frames hop from the
+  capture engine's media thread to the platform thread through a window message,
+  since the Windows embedder exposes no task runner.
+
 * Fixes video recording failing to start on cameras the app did not configure
   media settings for.
   The H.264 encoder requires a bitrate on its output media type, and the plugin

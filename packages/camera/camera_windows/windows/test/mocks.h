@@ -249,6 +249,7 @@ class MockCaptureController : public CaptureController {
   MOCK_METHOD(void, StartRecord, (const std::string& file_path), (override));
   MOCK_METHOD(void, StopRecord, (), (override));
   MOCK_METHOD(void, TakePicture, (const std::string& file_path), (override));
+  MOCK_METHOD(void, SetImageStreamSink, (ImageStreamSink * sink), (override));
 };
 
 // MockCameraPlugin extends CameraPlugin behaviour a bit to allow adding cameras

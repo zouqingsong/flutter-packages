@@ -879,7 +879,23 @@ bool CaptureControllerImpl::UpdateBuffer(uint8_t* buffer,
   if (!texture_handler_) {
     return false;
   }
-  return texture_handler_->UpdateBuffer(buffer, data_length);
+  const bool updated = texture_handler_->UpdateBuffer(buffer, data_length);
+
+  // The preview sink is the only one wired to this callback, so every sample
+  // here is a preview frame — and only one of the size the texture handler was
+  // built for may be handed on, since the sink is told the frame size rather
+  // than deriving it.
+  ImageStreamSink* sink = image_stream_sink_.load();
+  if (sink != nullptr &&
+      data_length == preview_frame_width_ * preview_frame_height_ * 4) {
+    sink->OnImageFrame(buffer, preview_frame_width_, preview_frame_height_);
+  }
+  return updated;
+}
+
+// Implements CaptureController::SetImageStreamSink.
+void CaptureControllerImpl::SetImageStreamSink(ImageStreamSink* sink) {
+  image_stream_sink_ = sink;
 }
 
 // Handles capture time update from each processed frame.

@@ -44,6 +44,99 @@ class CameraWindows extends CameraPlatform {
   Stream<CameraEvent> _cameraEvents(int cameraId) =>
       cameraEventStreamController.stream.where((CameraEvent event) => event.cameraId == cameraId);
 
+  /// The channel preview frames are streamed over.
+  ///
+  /// A message channel rather than an event channel because it also carries the
+  /// start and stop requests: one channel, in both directions, so the platform
+  /// side needs no second API just to be told to begin.
+  static const String imageStreamChannelName = 'plugins.flutter.io/camera_windows/imageStream';
+
+  final BasicMessageChannel<Object?> _imageStreamChannel = const BasicMessageChannel<Object?>(
+    imageStreamChannelName,
+    StandardMessageCodec(),
+  );
+
+  /// The per-camera image streams, so that listeners share one native stream.
+  ///
+  /// Exposed for tests; not part of the plugin's API.
+  @visibleForTesting
+  final Map<int, StreamController<CameraImageData>> imageStreamControllers =
+      <int, StreamController<CameraImageData>>{};
+
+  @override
+  bool supportsImageStreaming() => true;
+
+  @override
+  Stream<CameraImageData> onStreamedFrameAvailable(
+    int cameraId, {
+    CameraImageStreamOptions? options,
+  }) {
+    // One controller per camera, shared by every listener: the native side runs
+    // a single stream, and a second start would only be ignored.
+    return imageStreamControllers
+        .putIfAbsent(
+          cameraId,
+          () => StreamController<CameraImageData>.broadcast(
+            onListen: () => _setImageStreamRunning(cameraId, true),
+            onCancel: () => _setImageStreamRunning(cameraId, false),
+          ),
+        )
+        .stream;
+  }
+
+  Future<void> _setImageStreamRunning(int cameraId, bool running) async {
+    if (running) {
+      _imageStreamChannel.setMessageHandler(_onImageStreamMessage);
+    }
+    try {
+      await _imageStreamChannel.send(<String, Object?>{
+        'command': running ? 'start' : 'stop',
+        'cameraId': cameraId,
+      });
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Turns one message from the platform into a [CameraImageData].
+  Future<void> _onImageStreamMessage(Object? message) async {
+    if (message is! Map) {
+      return;
+    }
+    final Map<Object?, Object?> map = message.cast<Object?, Object?>();
+    final int? cameraId = (map['cameraId'] as num?)?.toInt();
+    final StreamController<CameraImageData>? controller = cameraId == null
+        ? null
+        : imageStreamControllers[cameraId];
+    if (controller == null || controller.isClosed) {
+      return;
+    }
+    final Object? bytes = map['bytes'];
+    if (bytes is! Uint8List) {
+      return;
+    }
+    final int width = (map['width'] as num?)?.toInt() ?? 0;
+    final int height = (map['height'] as num?)?.toInt() ?? 0;
+    controller.add(
+      CameraImageData(
+        // Media Foundation hands over RGB32, which is B,G,R,X in memory, and
+        // the frame is not mirrored to match the preview: mirroring is a
+        // preview affordance, and a reversed picture is not what a camera
+        // recorded.
+        format: const CameraImageFormat(ImageFormatGroup.bgra8888, raw: 'bgra8888'),
+        planes: <CameraImagePlane>[
+          CameraImagePlane(
+            bytes: bytes,
+            bytesPerRow: (map['bytesPerRow'] as num?)?.toInt() ?? width * 4,
+            bytesPerPixel: 4,
+          ),
+        ],
+        height: height,
+        width: width,
+      ),
+    );
+  }
+
   @override
   Future<List<CameraDescription>> availableCameras() async {
     try {
@@ -123,6 +216,7 @@ class CameraWindows extends CameraPlatform {
 
     // Destroy method channel after camera is disposed to be able to handle last messages.
     hostCameraHandlers.remove(cameraId)?.dispose();
+    await imageStreamControllers.remove(cameraId)?.close();
   }
 
   @override

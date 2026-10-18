@@ -15,8 +15,11 @@
 #include <windows.h>
 
 #include <cassert>
+#include <iostream>
 #include <chrono>
 #include <memory>
+#include <optional>
+#include <utility>
 
 #include "capture_device_info.h"
 #include "com_heap_ptr.h"
@@ -121,26 +124,129 @@ void CameraPlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows* registrar) {
   std::unique_ptr<CameraPlugin> plugin = std::make_unique<CameraPlugin>(
       registrar->texture_registrar(), registrar->messenger());
+  plugin->RegisterPlatformThreadDispatcher(registrar);
 
   CameraApi::SetUp(registrar->messenger(), plugin.get());
 
   registrar->AddPlugin(std::move(plugin));
 }
 
+namespace {
+// Identifies this plugin's posts to the platform thread. It sits in the range
+// Windows reserves for an application's own messages.
+constexpr UINT kPlatformTaskMessage = WM_APP + 0x4A;
+}  // namespace
+
 CameraPlugin::CameraPlugin(flutter::TextureRegistrar* texture_registrar,
                            flutter::BinaryMessenger* messenger)
-    : texture_registrar_(texture_registrar),
-      messenger_(messenger),
-      camera_factory_(std::make_unique<CameraFactoryImpl>()) {}
+    : CameraPlugin(texture_registrar,
+                   messenger,
+                   std::make_unique<CameraFactoryImpl>()) {}
 
 CameraPlugin::CameraPlugin(flutter::TextureRegistrar* texture_registrar,
                            flutter::BinaryMessenger* messenger,
                            std::unique_ptr<CameraFactory> camera_factory)
     : texture_registrar_(texture_registrar),
       messenger_(messenger),
-      camera_factory_(std::move(camera_factory)) {}
+      camera_factory_(std::move(camera_factory)) {
+  image_stream_handler_ = std::make_unique<ImageStreamHandler>(
+      messenger_, [this](std::function<void()> task) {
+        PostToPlatformThread(std::move(task));
+      });
+  image_stream_handler_->SetStateChangeCallback(
+      [this](int64_t camera_id, bool running) {
+        OnImageStreamStateChange(camera_id, running);
+      });
+}
 
-CameraPlugin::~CameraPlugin() {}
+CameraPlugin::~CameraPlugin() {
+  // Order matters: the handler must be gone before the tasks that would use it
+  // can run, and the delegate must be gone before the window can dispatch to
+  // them.
+  image_stream_handler_ = nullptr;
+  if (registrar_ != nullptr && window_proc_delegate_id_ >= 0) {
+    registrar_->UnregisterTopLevelWindowProcDelegate(
+        window_proc_delegate_id_);
+    window_proc_delegate_id_ = -1;
+  }
+  {
+    const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
+    platform_tasks_.clear();
+  }
+}
+
+void CameraPlugin::RegisterPlatformThreadDispatcher(
+    flutter::PluginRegistrarWindows* registrar) {
+  registrar_ = registrar;
+  flutter::FlutterView* view = registrar->GetView();
+  window_ = view == nullptr ? nullptr : view->GetNativeWindow();
+  if (window_ == nullptr) {
+    return;
+  }
+  window_proc_delegate_id_ = registrar->RegisterTopLevelWindowProcDelegate(
+      [this](HWND hwnd, UINT message, WPARAM wparam,
+             LPARAM lparam) -> std::optional<LRESULT> {
+        if (message != kPlatformTaskMessage) {
+          return std::nullopt;
+        }
+        std::vector<std::function<void()>> tasks;
+        {
+          const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
+          tasks.swap(platform_tasks_);
+        }
+        for (auto& task : tasks) {
+          task();
+        }
+        // The message is this plugin's own, so it is not swallowed: other
+        // delegates are welcome to ignore it too.
+        return std::nullopt;
+      });
+}
+
+void CameraPlugin::PostToPlatformThread(std::function<void()> task) {
+  if (window_ == nullptr) {
+    task();
+    return;
+  }
+  {
+    const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
+    platform_tasks_.push_back(std::move(task));
+  }
+  ::PostMessage(window_, kPlatformTaskMessage, 0, 0);
+}
+
+void CameraPlugin::OnImageStreamStateChange(int64_t camera_id, bool running) {
+  Camera* target = nullptr;
+  for (auto& camera : cameras_) {
+    if (camera->HasCameraId(camera_id)) {
+      target = camera.get();
+      break;
+    }
+  }
+  // An id that matches nothing used to leave every sink detached and the caller
+  // waiting for frames that could never arrive. Falling back to the only camera
+  // turns a mismatch into a stream, and there is nothing ambiguous to pick.
+  if (running && target == nullptr && cameras_.size() == 1) {
+    target = cameras_.front().get();
+    std::cerr << "camera_windows: image stream for camera " << camera_id
+              << " not found; streaming the only camera instead" << std::endl;
+  }
+
+  for (auto& camera : cameras_) {
+    CaptureController* controller = camera->GetCaptureController();
+    if (controller == nullptr) {
+      continue;
+    }
+    // One stream at a time: starting one clears every other sink, so a camera
+    // that is disposed or replaced cannot leave a sink pointing at frames that
+    // belong to a different device.
+    if (running && camera.get() == target) {
+      controller->SetImageStreamSink(image_stream_handler_.get());
+    } else {
+      controller->SetImageStreamSink(nullptr);
+    }
+  }
+}
 
 Camera* CameraPlugin::GetCameraByDeviceId(std::string& device_id) {
   for (auto it = begin(cameras_); it != end(cameras_); ++it) {

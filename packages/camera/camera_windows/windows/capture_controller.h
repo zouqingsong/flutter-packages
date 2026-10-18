@@ -14,12 +14,14 @@
 #include <windows.h>
 #include <wrl/client.h>
 
+#include <atomic>
 #include <memory>
 #include <optional>
 #include <string>
 
 #include "capture_controller_listener.h"
 #include "capture_engine_listener.h"
+#include "image_stream_handler.h"
 #include "messages.g.h"
 #include "photo_handler.h"
 #include "preview_handler.h"
@@ -94,6 +96,11 @@ class CaptureController {
 
   // Captures a still photo.
   virtual void TakePicture(const std::string& file_path) = 0;
+
+  // Sets the sink that receives preview frames for image streaming, or null to
+  // stop streaming. Called on the platform thread; frames are delivered on the
+  // capture engine's sample thread.
+  virtual void SetImageStreamSink(ImageStreamSink* sink) = 0;
 };
 
 // Concrete implementation of the |CaptureController| interface.
@@ -126,6 +133,7 @@ class CaptureControllerImpl : public CaptureController,
   void StartRecord(const std::string& file_path) override;
   void StopRecord() override;
   void TakePicture(const std::string& file_path) override;
+  void SetImageStreamSink(ImageStreamSink* sink) override;
 
   // CaptureEngineObserver
   void OnEvent(IMFMediaEvent* event) override;
@@ -211,6 +219,10 @@ class CaptureControllerImpl : public CaptureController,
   void OnRecordStopped(CameraResult result, const std::string& error);
 
   bool media_foundation_started_ = false;
+
+  // The sink is set on the platform thread and read on the sample thread, so it
+  // is read through an atomic pointer rather than copied into the frame path.
+  std::atomic<ImageStreamSink*> image_stream_sink_{nullptr};
 
   uint32_t preview_frame_width_ = 0;
   uint32_t preview_frame_height_ = 0;

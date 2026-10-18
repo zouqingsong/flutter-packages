@@ -11,10 +11,13 @@
 #include <flutter/standard_method_codec.h>
 
 #include <functional>
+#include <mutex>
+#include <vector>
 
 #include "camera.h"
 #include "capture_controller.h"
 #include "capture_controller_listener.h"
+#include "image_stream_handler.h"
 #include "messages.g.h"
 
 namespace camera_windows {
@@ -82,6 +85,24 @@ class CameraPlugin : public flutter::Plugin,
   // with matching camera_id or nullptr.
   Camera* GetCameraByCameraId(int64_t camera_id);
 
+  // Points the image stream at the camera Dart asked for, or clears it.
+  // Called on the platform thread from the image stream channel.
+  void OnImageStreamStateChange(int64_t camera_id, bool running);
+
+  // Sets up the window message used to reach the platform thread.
+  //
+  // Called once from RegisterWithRegistrar. The Windows embedder exposes no
+  // task runner, so a plugin that has work on a media thread posts a private
+  // window message instead and runs the work in the window proc delegate —
+  // which is the only callback the embedder makes on the platform thread.
+  void RegisterPlatformThreadDispatcher(
+      flutter::PluginRegistrarWindows* registrar);
+
+  // Runs |task| on the platform thread. Runs it inline when no dispatcher has
+  // been registered, which is what tests do: a single-threaded test has no
+  // other thread to hop to.
+  void PostToPlatformThread(std::function<void()> task);
+
   // Disposes camera by camera id.
   void DisposeCameraByCameraId(int64_t camera_id);
 
@@ -92,7 +113,15 @@ class CameraPlugin : public flutter::Plugin,
   std::unique_ptr<CameraFactory> camera_factory_;
   flutter::TextureRegistrar* texture_registrar_;
   flutter::BinaryMessenger* messenger_;
+  std::unique_ptr<ImageStreamHandler> image_stream_handler_;
   std::vector<std::unique_ptr<Camera>> cameras_;
+
+  // The dispatcher behind PostToPlatformThread.
+  flutter::PluginRegistrarWindows* registrar_ = nullptr;
+  HWND window_ = nullptr;
+  int window_proc_delegate_id_ = -1;
+  std::mutex platform_tasks_mutex_;
+  std::vector<std::function<void()>> platform_tasks_;
 
   friend class camera_windows::test::MockCameraPlugin;
 };
