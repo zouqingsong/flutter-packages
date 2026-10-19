@@ -65,8 +65,11 @@ HRESULT CaptureEngineListener::OnSample(IMFSample* sample) {
     this->observer_->UpdateCaptureTime(
         static_cast<uint64_t>(raw_time_stamp / 10));
 
-    if (!this->observer_->IsReadyForSample()) {
-      // No texture target available or not previewing, just return status.
+    if (!this->observer_->IsReadyForSample() &&
+        !this->observer_->IsServingImageStream()) {
+      // Nothing to draw on and nothing subscribed: the sample is of no use to
+      // anyone. Previewing off is not enough of a reason on its own, because an
+      // image stream can be served with no preview at all.
       return hr;
     }
 

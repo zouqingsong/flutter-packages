@@ -9,6 +9,8 @@
 #include <wrl/client.h>
 
 #include <cassert>
+#include <string>
+#include <iostream>
 #include <chrono>
 
 #include "com_heap_ptr.h"
@@ -876,19 +878,38 @@ void CaptureControllerImpl::OnRecordStopped(CameraResult result,
 // Implements CaptureEngineObserver::UpdateBuffer.
 bool CaptureControllerImpl::UpdateBuffer(uint8_t* buffer,
                                          uint32_t data_length) {
-  if (!texture_handler_) {
-    return false;
-  }
-  const bool updated = texture_handler_->UpdateBuffer(buffer, data_length);
+  // The texture is one consumer of a sample, not the only one: an image stream
+  // is served whether or not anything is drawn, and a camera whose preview
+  // never started still has frames to give.
+  const bool updated = texture_handler_ != nullptr &&
+                       texture_handler_->UpdateBuffer(buffer, data_length);
+  last_sample_length_ = static_cast<int>(data_length);
 
   // The preview sink is the only one wired to this callback, so every sample
   // here is a preview frame — and only one of the size the texture handler was
   // built for may be handed on, since the sink is told the frame size rather
   // than deriving it.
   ImageStreamSink* sink = image_stream_sink_.load();
-  if (sink != nullptr &&
-      data_length == preview_frame_width_ * preview_frame_height_ * 4) {
+  const uint32_t expected = preview_frame_width_ * preview_frame_height_ * 4;
+  if (sink != nullptr && data_length == expected) {
+    samples_forwarded_++;
     sink->OnImageFrame(buffer, preview_frame_width_, preview_frame_height_);
+  } else {
+    // Said once per controller: a sample that never reaches the sink, or a sink
+    // that was never attached, otherwise looks exactly like a camera that sends
+    // nothing at all.
+    static bool reported = false;
+    if (!reported && sink == nullptr) {
+      std::cerr << "camera_windows: preview sample arrived with no image stream "
+                   "sink attached\n";
+      reported = true;
+    } else if (!reported) {
+      std::cerr << "camera_windows: preview sample is " << data_length
+                << " bytes, expected " << expected
+                << " for an RGB32 " << preview_frame_width_ << "x"
+                << preview_frame_height_ << " frame\n";
+      reported = true;
+    }
   }
   return updated;
 }
@@ -898,10 +919,51 @@ void CaptureControllerImpl::SetImageStreamSink(ImageStreamSink* sink) {
   image_stream_sink_ = sink;
 }
 
+// Implements CaptureController::DescribeState.
+std::string CaptureControllerImpl::DescribeState() const {
+  const char* engine = "not initialized";
+  switch (capture_engine_state_) {
+    case CaptureEngineState::kInitializing:
+      engine = "initializing";
+      break;
+    case CaptureEngineState::kInitialized:
+      engine = "initialized";
+      break;
+    default:
+      break;
+  }
+
+  const char* preview = "no preview handler";
+  if (preview_handler_) {
+    if (preview_handler_->IsRunning()) {
+      preview = "preview running";
+    } else if (preview_handler_->IsStarting()) {
+      preview = "preview starting";
+    } else if (preview_handler_->IsPaused()) {
+      preview = "preview paused";
+    } else {
+      preview = "preview not started";
+    }
+  }
+  // Whether the engine would have taken a sample at all, and whether anything
+  // was listening for it: a stream with no frames is one of these two.
+  const std::string consuming =
+      std::string(IsReadyForSample() ? "preview consuming" : "preview idle") +
+      (image_stream_sink_.load() == nullptr ? ", no sink" : ", sink attached");
+  return std::string(engine) + ", " + preview + ", " + consuming + ", samples " +
+         std::to_string(samples_seen_.load()) + ", forwarded " +
+         std::to_string(samples_forwarded_.load()) + ", last sample " +
+         std::to_string(last_sample_length_.load()) + " of " +
+         std::to_string(preview_frame_width_ * preview_frame_height_ * 4) +
+         " bytes, frame " + std::to_string(preview_frame_width_) + "x" +
+         std::to_string(preview_frame_height_);
+}
+
 // Handles capture time update from each processed frame.
 // Called via IMFCaptureEngineOnSampleCallback implementation.
 // Implements CaptureEngineObserver::UpdateCaptureTime.
 void CaptureControllerImpl::UpdateCaptureTime(uint64_t capture_time_us) {
+  samples_seen_++;
   if (!IsInitialized()) {
     return;
   }

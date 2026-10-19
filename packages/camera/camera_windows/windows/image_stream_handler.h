@@ -65,9 +65,13 @@ class ImageStreamHandler : public ImageStreamSink {
   // is whatever Dart sent with the request.
   using StateChangeCallback = std::function<void(int64_t camera_id, bool running)>;
 
-  // Moves a task to the platform thread. Supplied by the plugin, which uses a
-  // window message because the Windows embedder exposes no task runner.
-  using PostCallback = std::function<void(std::function<void()>)>;
+  // Reports what the plugin knows about the stream, for a `status` request.
+  using StatusCallback = std::function<flutter::EncodableMap()>;
+
+  // Moves a task to the platform thread, returning false when that was not
+  // possible. Supplied by the plugin, which uses a window message because the
+  // Windows embedder exposes no task runner.
+  using PostCallback = std::function<bool(std::function<void()>)>;
 
   // |post| hops from the capture engine's sample thread to the platform thread.
   // A callback that runs its task inline is only for tests: the channel may not
@@ -80,6 +84,13 @@ class ImageStreamHandler : public ImageStreamSink {
   ImageStreamHandler& operator=(const ImageStreamHandler&) = delete;
 
   void SetStateChangeCallback(StateChangeCallback callback);
+  void SetStatusCallback(StatusCallback callback);
+
+  /// Frames handed to Dart since this handler was created.
+  int FramesSent() const { return frames_sent_; }
+
+  /// Frames offered by the camera and copied, whether or not they were sent.
+  int FramesReceived() const { return frames_received_; }
 
   // Whether a stream is wanted. Frames arriving while this is false are
   // dropped without being copied.
@@ -90,8 +101,10 @@ class ImageStreamHandler : public ImageStreamSink {
                     uint32_t height) override;
 
  private:
-  // Handles a control message from Dart. Runs on the platform thread.
-  void OnControlMessage(const flutter::EncodableValue& message);
+  // Handles a control message from Dart, returning what to reply. Runs on the
+  // platform thread.
+  flutter::EncodableValue OnControlMessage(
+      const flutter::EncodableValue& message);
 
   // Encodes and sends one frame. Runs on the platform thread.
   void SendFrame(std::vector<uint8_t> bytes, uint32_t width, uint32_t height);
@@ -100,6 +113,9 @@ class ImageStreamHandler : public ImageStreamSink {
       channel_;
   PostCallback post_;
   StateChangeCallback state_change_callback_;
+  StatusCallback status_callback_;
+  std::atomic<int> frames_sent_{0};
+  std::atomic<int> frames_received_{0};
 
   std::atomic<bool> running_{false};
   // Set while a frame is on its way to Dart, so a frame that the platform

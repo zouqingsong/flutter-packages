@@ -151,12 +151,14 @@ CameraPlugin::CameraPlugin(flutter::TextureRegistrar* texture_registrar,
       camera_factory_(std::move(camera_factory)) {
   image_stream_handler_ = std::make_unique<ImageStreamHandler>(
       messenger_, [this](std::function<void()> task) {
-        PostToPlatformThread(std::move(task));
+        return PostToPlatformThread(std::move(task));
       });
   image_stream_handler_->SetStateChangeCallback(
       [this](int64_t camera_id, bool running) {
         OnImageStreamStateChange(camera_id, running);
       });
+  image_stream_handler_->SetStatusCallback(
+      [this]() { return BuildImageStreamStatus(); });
 }
 
 CameraPlugin::~CameraPlugin() {
@@ -179,7 +181,16 @@ void CameraPlugin::RegisterPlatformThreadDispatcher(
     flutter::PluginRegistrarWindows* registrar) {
   registrar_ = registrar;
   flutter::FlutterView* view = registrar->GetView();
-  window_ = view == nullptr ? nullptr : view->GetNativeWindow();
+  HWND view_window = view == nullptr ? nullptr : view->GetNativeWindow();
+  // The registrar's delegate is called for the *top-level* window, and the
+  // Flutter view is a child of it. Posting to the child put every frame into a
+  // window proc that never reaches the delegate, so nothing was ever sent and
+  // the stream timed out waiting for its first picture.
+  window_ = view_window == nullptr ? nullptr
+                                   : ::GetAncestor(view_window, GA_ROOT);
+  if (window_ == nullptr) {
+    window_ = view_window;
+  }
   if (window_ == nullptr) {
     return;
   }
@@ -203,16 +214,54 @@ void CameraPlugin::RegisterPlatformThreadDispatcher(
       });
 }
 
-void CameraPlugin::PostToPlatformThread(std::function<void()> task) {
+bool CameraPlugin::PostToPlatformThread(std::function<void()> task) {
   if (window_ == nullptr) {
+    // No window to post to, which only happens in tests: run the task where it
+    // was asked for so the behaviour stays observable.
     task();
-    return;
+    return true;
   }
   {
     const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
     platform_tasks_.push_back(std::move(task));
   }
-  ::PostMessage(window_, kPlatformTaskMessage, 0, 0);
+  if (!::PostMessage(window_, kPlatformTaskMessage, 0, 0)) {
+    // The message could not be delivered, so nothing will drain the queue and
+    // the caller must not wait for a result that is never coming.
+    const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
+    platform_tasks_.pop_back();
+    return false;
+  }
+  return true;
+}
+
+flutter::EncodableMap CameraPlugin::BuildImageStreamStatus() {
+  int32_t attached = 0;
+  for (auto& camera : cameras_) {
+    CaptureController* controller = camera->GetCaptureController();
+    if (controller != nullptr && controller->HasImageStreamSink()) {
+      attached++;
+    }
+  }
+  // The camera list and the attachment, because a stream with no frames is
+  // either "no camera was ever created" or "no sink was ever attached", and the
+  // two look the same from outside.
+  std::string state;
+  for (auto& camera : cameras_) {
+    if (camera->HasCameraId(1) || cameras_.size() == 1) {
+      CaptureController* controller = camera->GetCaptureController();
+      if (controller != nullptr) state = controller->DescribeState();
+    }
+  }
+  std::cerr << "camera_windows: status — " << cameras_.size()
+            << " cameras, " << attached << " with an image stream sink, "
+            << state << "\n";
+  flutter::EncodableMap status;
+  status[flutter::EncodableValue("state")] = flutter::EncodableValue(state);
+  status[flutter::EncodableValue("cameras")] =
+      flutter::EncodableValue(static_cast<int32_t>(cameras_.size()));
+  status[flutter::EncodableValue("sinks")] = flutter::EncodableValue(attached);
+  return status;
 }
 
 void CameraPlugin::OnImageStreamStateChange(int64_t camera_id, bool running) {

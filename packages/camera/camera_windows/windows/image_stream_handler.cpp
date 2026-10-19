@@ -23,9 +23,13 @@ ImageStreamHandler::ImageStreamHandler(flutter::BinaryMessenger* messenger,
   channel_->SetMessageHandler(
       [this](const EncodableValue& message,
              const flutter::MessageReply<EncodableValue>& reply) {
-        OnControlMessage(message);
+        const EncodableValue reply_value = OnControlMessage(message);
         if (reply) {
-          reply(EncodableValue());
+          // Answered rather than ignored: a message that never reaches this
+          // handler and one that arrives look identical to the sender otherwise,
+          // which makes a stream with no frames impossible to diagnose from
+          // Dart.
+          reply(reply_value);
         }
       });
 }
@@ -43,18 +47,33 @@ void ImageStreamHandler::SetStateChangeCallback(
   state_change_callback_ = std::move(callback);
 }
 
-void ImageStreamHandler::OnControlMessage(const EncodableValue& message) {
+void ImageStreamHandler::SetStatusCallback(StatusCallback callback) {
+  status_callback_ = std::move(callback);
+}
+
+EncodableValue ImageStreamHandler::OnControlMessage(
+    const EncodableValue& message) {
   if (!std::holds_alternative<EncodableMap>(message)) {
-    return;
+    return EncodableValue(false);
   }
   const EncodableMap& map = std::get<EncodableMap>(message);
 
   auto command_it = map.find(EncodableValue("command"));
   if (command_it == map.end() ||
       !std::holds_alternative<std::string>(command_it->second)) {
-    return;
+    return EncodableValue(false);
   }
   const std::string& command = std::get<std::string>(command_it->second);
+
+  if (command == "status") {
+    EncodableMap status = status_callback_ ? status_callback_() : EncodableMap();
+    status[EncodableValue("running")] = EncodableValue(IsRunning());
+    status[EncodableValue("received")] =
+        EncodableValue(static_cast<int32_t>(frames_received_.load()));
+    status[EncodableValue("sent")] =
+        EncodableValue(static_cast<int32_t>(frames_sent_.load()));
+    return EncodableValue(std::move(status));
+  }
 
   // Dart sends an int as int32 when it fits and int64 when it does not, so both
   // have to be read: accepting only int64 silently left the id at -1, no camera
@@ -81,6 +100,7 @@ void ImageStreamHandler::OnControlMessage(const EncodableValue& message) {
       state_change_callback_(camera_id_, false);
     }
   }
+  return EncodableValue(true);
 }
 
 void ImageStreamHandler::OnImageFrame(const uint8_t* bgra, uint32_t width,
@@ -100,6 +120,7 @@ void ImageStreamHandler::OnImageFrame(const uint8_t* bgra, uint32_t width,
     return;
   }
   last_frame_at_ = now;
+  frames_received_++;
 
   const size_t row_bytes = static_cast<size_t>(width) * 4;
   std::vector<uint8_t> bytes(row_bytes * height);
@@ -107,9 +128,15 @@ void ImageStreamHandler::OnImageFrame(const uint8_t* bgra, uint32_t width,
 
   // The channel may only be used from the platform thread, and the capture
   // engine calls this on a media thread.
-  post_([this, bytes = std::move(bytes), width, height]() mutable {
-    SendFrame(std::move(bytes), width, height);
-  });
+  const bool queued =
+      post_([this, bytes = std::move(bytes), width, height]() mutable {
+        SendFrame(std::move(bytes), width, height);
+      });
+  if (!queued) {
+    // Nothing will send this frame, so the next one must not be dropped in its
+    // favour: a flag left set here stops the stream for good.
+    frame_in_flight_ = false;
+  }
 }
 
 void ImageStreamHandler::SendFrame(std::vector<uint8_t> bytes, uint32_t width,
@@ -118,6 +145,8 @@ void ImageStreamHandler::SendFrame(std::vector<uint8_t> bytes, uint32_t width,
     frame_in_flight_ = false;
     return;
   }
+
+  frames_sent_++;
 
   EncodableMap map;
   map[EncodableValue("bytes")] = EncodableValue(std::move(bytes));

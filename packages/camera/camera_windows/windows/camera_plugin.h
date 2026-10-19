@@ -89,6 +89,10 @@ class CameraPlugin : public flutter::Plugin,
   // Called on the platform thread from the image stream channel.
   void OnImageStreamStateChange(int64_t camera_id, bool running);
 
+  // What the plugin knows about the image stream, for a `status` request: how
+  // many cameras it holds and how many of them have a sink attached.
+  flutter::EncodableMap BuildImageStreamStatus();
+
   // Sets up the window message used to reach the platform thread.
   //
   // Called once from RegisterWithRegistrar. The Windows embedder exposes no
@@ -98,10 +102,10 @@ class CameraPlugin : public flutter::Plugin,
   void RegisterPlatformThreadDispatcher(
       flutter::PluginRegistrarWindows* registrar);
 
-  // Runs |task| on the platform thread. Runs it inline when no dispatcher has
-  // been registered, which is what tests do: a single-threaded test has no
-  // other thread to hop to.
-  void PostToPlatformThread(std::function<void()> task);
+  // Runs |task| on the platform thread, returning false when it could not be
+  // queued. Runs it inline when no dispatcher has been registered, which is
+  // what tests do: a single-threaded test has no other thread to hop to.
+  bool PostToPlatformThread(std::function<void()> task);
 
   // Disposes camera by camera id.
   void DisposeCameraByCameraId(int64_t camera_id);

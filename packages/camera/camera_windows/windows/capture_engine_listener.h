@@ -20,6 +20,11 @@ class CaptureEngineObserver {
   // Returns true if sample can be processed.
   virtual bool IsReadyForSample() const = 0;
 
+  // Returns true if samples are wanted even though the preview is not running.
+  // An image stream is a consumer of its own: it must be served while nothing
+  // is drawn on screen, where the preview would otherwise starve it.
+  virtual bool IsServingImageStream() const = 0;
+
   // Handles Capture Engine media events.
   virtual void OnEvent(IMFMediaEvent* event) = 0;
 

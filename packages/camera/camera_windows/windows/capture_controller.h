@@ -101,6 +101,14 @@ class CaptureController {
   // stop streaming. Called on the platform thread; frames are delivered on the
   // capture engine's sample thread.
   virtual void SetImageStreamSink(ImageStreamSink* sink) = 0;
+
+  // Whether a sink is currently attached, for the plugin's status reporting.
+  virtual bool HasImageStreamSink() const = 0;
+
+  // A short description of the capture state ("initialized, preview running"),
+  // for the plugin's status reporting: frames only flow once the preview is
+  // running, and "no frames" says nothing about which of those is missing.
+  virtual std::string DescribeState() const = 0;
 };
 
 // Concrete implementation of the |CaptureController| interface.
@@ -134,6 +142,10 @@ class CaptureControllerImpl : public CaptureController,
   void StopRecord() override;
   void TakePicture(const std::string& file_path) override;
   void SetImageStreamSink(ImageStreamSink* sink) override;
+  bool HasImageStreamSink() const override {
+    return image_stream_sink_.load() != nullptr;
+  }
+  std::string DescribeState() const override;
 
   // CaptureEngineObserver
   void OnEvent(IMFMediaEvent* event) override;
@@ -141,6 +153,7 @@ class CaptureControllerImpl : public CaptureController,
     return capture_engine_state_ == CaptureEngineState::kInitialized &&
            preview_handler_ && preview_handler_->IsRunning();
   }
+  bool IsServingImageStream() const override { return HasImageStreamSink(); }
   bool UpdateBuffer(uint8_t* data, uint32_t data_length) override;
   void UpdateCaptureTime(uint64_t capture_time) override;
 
@@ -223,6 +236,13 @@ class CaptureControllerImpl : public CaptureController,
   // The sink is set on the platform thread and read on the sample thread, so it
   // is read through an atomic pointer rather than copied into the frame path.
   std::atomic<ImageStreamSink*> image_stream_sink_{nullptr};
+
+  // Every sample the capture engine delivers, counted before anything decides
+  // what to do with it: a stream with no frames is either "the camera sent
+  // nothing" or "we dropped it", and only a count tells them apart.
+  std::atomic<uint64_t> samples_seen_{0};
+  std::atomic<uint64_t> samples_forwarded_{0};
+  std::atomic<int> last_sample_length_{0};
 
   uint32_t preview_frame_width_ = 0;
   uint32_t preview_frame_height_ = 0;
