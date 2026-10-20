@@ -122,8 +122,11 @@ class CameraPlugin : public flutter::Plugin,
 
   // The dispatcher behind PostToPlatformThread.
   flutter::PluginRegistrarWindows* registrar_ = nullptr;
-  HWND window_ = nullptr;
   int window_proc_delegate_id_ = -1;
+
+  // The window a platform task may be posted to, resolved from the view's
+  // ancestor at the moment it is needed. See RegisterPlatformThreadDispatcher.
+  HWND TopLevelWindow() const;
   std::mutex platform_tasks_mutex_;
   std::vector<std::function<void()>> platform_tasks_;
 

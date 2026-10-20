@@ -180,18 +180,13 @@ CameraPlugin::~CameraPlugin() {
 void CameraPlugin::RegisterPlatformThreadDispatcher(
     flutter::PluginRegistrarWindows* registrar) {
   registrar_ = registrar;
-  flutter::FlutterView* view = registrar->GetView();
-  HWND view_window = view == nullptr ? nullptr : view->GetNativeWindow();
-  // The registrar's delegate is called for the *top-level* window, and the
-  // Flutter view is a child of it. Posting to the child put every frame into a
-  // window proc that never reaches the delegate, so nothing was ever sent and
-  // the stream timed out waiting for its first picture.
-  window_ = view_window == nullptr ? nullptr
-                                   : ::GetAncestor(view_window, GA_ROOT);
-  if (window_ == nullptr) {
-    window_ = view_window;
-  }
-  if (window_ == nullptr) {
+  // The window is looked up per post rather than remembered here: plugins are
+  // registered *before* the runner parents the Flutter view under its own
+  // window, so at registration time the view is still its own root and the
+  // "top-level window" of this moment is the view — a window whose messages
+  // never reach the registrar's delegate. Every frame was posted to it and
+  // dropped, which is what "frames copied 1, frames sent 0" was saying.
+  if (TopLevelWindow() == nullptr) {
     return;
   }
   window_proc_delegate_id_ = registrar->RegisterTopLevelWindowProcDelegate(
@@ -214,8 +209,24 @@ void CameraPlugin::RegisterPlatformThreadDispatcher(
       });
 }
 
+HWND CameraPlugin::TopLevelWindow() const {
+  if (registrar_ == nullptr) {
+    return nullptr;
+  }
+  flutter::FlutterView* view = registrar_->GetView();
+  HWND view_window = view == nullptr ? nullptr : view->GetNativeWindow();
+  if (view_window == nullptr) {
+    return nullptr;
+  }
+  // The delegate is registered for the top-level window, and the view is a
+  // child of it once the runner has set it as the window's content.
+  HWND root = ::GetAncestor(view_window, GA_ROOT);
+  return root == nullptr ? view_window : root;
+}
+
 bool CameraPlugin::PostToPlatformThread(std::function<void()> task) {
-  if (window_ == nullptr) {
+  HWND window = TopLevelWindow();
+  if (window == nullptr) {
     // No window to post to, which only happens in tests: run the task where it
     // was asked for so the behaviour stays observable.
     task();
@@ -225,7 +236,7 @@ bool CameraPlugin::PostToPlatformThread(std::function<void()> task) {
     const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
     platform_tasks_.push_back(std::move(task));
   }
-  if (!::PostMessage(window_, kPlatformTaskMessage, 0, 0)) {
+  if (!::PostMessage(window, kPlatformTaskMessage, 0, 0)) {
     // The message could not be delivered, so nothing will drain the queue and
     // the caller must not wait for a result that is never coming.
     const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
@@ -261,6 +272,12 @@ flutter::EncodableMap CameraPlugin::BuildImageStreamStatus() {
   status[flutter::EncodableValue("cameras")] =
       flutter::EncodableValue(static_cast<int32_t>(cameras_.size()));
   status[flutter::EncodableValue("sinks")] = flutter::EncodableValue(attached);
+  if (image_stream_handler_ != nullptr) {
+    status[flutter::EncodableValue("posted")] = flutter::EncodableValue(
+        static_cast<int32_t>(image_stream_handler_->PostedTasks()));
+    status[flutter::EncodableValue("drained")] = flutter::EncodableValue(
+        static_cast<int32_t>(image_stream_handler_->DrainedTasks()));
+  }
   return status;
 }
 

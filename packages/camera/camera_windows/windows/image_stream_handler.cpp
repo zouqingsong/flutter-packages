@@ -72,7 +72,28 @@ EncodableValue ImageStreamHandler::OnControlMessage(
         EncodableValue(static_cast<int32_t>(frames_received_.load()));
     status[EncodableValue("sent")] =
         EncodableValue(static_cast<int32_t>(frames_sent_.load()));
+    status[EncodableValue("posted")] =
+        EncodableValue(static_cast<int32_t>(tasks_posted_.load()));
+    status[EncodableValue("drained")] =
+        EncodableValue(static_cast<int32_t>(tasks_drained_.load()));
     return EncodableValue(std::move(status));
+  }
+
+  // A frame that needs no camera: it travels the same path a real one does
+  // (media thread, platform thread, channel) and arrives in Dart marked 64x64,
+  // so a stream with no frames can be told apart from a broken transport
+  // without a camera that has to cooperate.
+  if (command == "test-frame") {
+    constexpr uint32_t size = 64;
+    running_ = true;
+    std::vector<uint8_t> bytes(size * size * 4, 0x40);
+    const bool queued = post_([this, bytes = std::move(bytes), size]() mutable {
+      SendFrame(std::move(bytes), size, size);
+    });
+    if (queued) tasks_posted_++;
+    EncodableMap reply;
+    reply[EncodableValue("queued")] = EncodableValue(queued);
+    return EncodableValue(std::move(reply));
   }
 
   // Dart sends an int as int32 when it fits and int64 when it does not, so both
@@ -132,7 +153,9 @@ void ImageStreamHandler::OnImageFrame(const uint8_t* bgra, uint32_t width,
       post_([this, bytes = std::move(bytes), width, height]() mutable {
         SendFrame(std::move(bytes), width, height);
       });
-  if (!queued) {
+  if (queued) {
+    tasks_posted_++;
+  } else {
     // Nothing will send this frame, so the next one must not be dropped in its
     // favour: a flag left set here stops the stream for good.
     frame_in_flight_ = false;
@@ -141,6 +164,7 @@ void ImageStreamHandler::OnImageFrame(const uint8_t* bgra, uint32_t width,
 
 void ImageStreamHandler::SendFrame(std::vector<uint8_t> bytes, uint32_t width,
                                    uint32_t height) {
+  tasks_drained_++;
   if (!IsRunning()) {
     frame_in_flight_ = false;
     return;

@@ -92,6 +92,12 @@ class ImageStreamHandler : public ImageStreamSink {
   /// Frames offered by the camera and copied, whether or not they were sent.
   int FramesReceived() const { return frames_received_; }
 
+  /// Tasks handed to the platform thread, and the ones that actually ran
+  /// there. A posted task that never runs looks exactly like a frame that was
+  /// never sent, so the two are counted apart.
+  int PostedTasks() const { return tasks_posted_; }
+  int DrainedTasks() const { return tasks_drained_; }
+
   // Whether a stream is wanted. Frames arriving while this is false are
   // dropped without being copied.
   bool IsRunning() const { return running_.load(); }
@@ -116,6 +122,8 @@ class ImageStreamHandler : public ImageStreamSink {
   StatusCallback status_callback_;
   std::atomic<int> frames_sent_{0};
   std::atomic<int> frames_received_{0};
+  std::atomic<int> tasks_posted_{0};
+  std::atomic<int> tasks_drained_{0};
 
   std::atomic<bool> running_{false};
   // Set while a frame is on its way to Dart, so a frame that the platform
