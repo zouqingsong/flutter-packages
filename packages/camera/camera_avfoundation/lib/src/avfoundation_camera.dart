@@ -80,6 +80,17 @@ class AVFoundationCamera extends CameraPlatform {
   }
 
   @override
+  Future<List<Size>> getSupportedPreviewSizes(int cameraId) async {
+    try {
+      return (await _hostApi.getSupportedPreviewSizes(cameraId))
+          .map((size) => Size(size.width, size.height))
+          .toList();
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  @override
   Future<int> createCamera(
     CameraDescription cameraDescription,
     ResolutionPreset? resolutionPreset, {

@@ -848,6 +848,30 @@ class CameraApi {
     ;
   }
 
+  /// The picture sizes the camera can actually deliver, largest first.
+  ///
+  /// A resolution preset is a request, not a promise: a UVC camera takes the
+  /// closest format it has to the one asked for, so a caller that offers a list
+  /// of modes has to be able to offer only the ones that exist.
+  Future<List<PlatformSize>> getSupportedPreviewSizes(int cameraId) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.camera_avfoundation.CameraApi.getSupportedPreviewSizes$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[cameraId]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    ;
+    return (pigeonVar_replyValue! as List<Object?>).cast<PlatformSize>();
+  }
+
   /// Begins streaming frames from the camera.
   Future<void> startImageStream() async {
     final pigeonVar_channelName = 'dev.flutter.pigeon.camera_avfoundation.CameraApi.startImageStream$pigeonVar_messageChannelSuffix';

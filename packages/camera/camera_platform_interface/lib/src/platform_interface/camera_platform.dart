@@ -270,6 +270,17 @@ abstract class CameraPlatform extends PlatformInterface {
     throw UnimplementedError('getMinFocusDistance() is not implemented.');
   }
 
+  /// The picture sizes this camera can deliver, largest first.
+  ///
+  /// A resolution preset is a request rather than a promise — a camera settles on
+  /// the closest format it has — so a caller that offers a list of modes needs the
+  /// sizes the device actually produces. An empty list means the platform cannot
+  /// enumerate them, and the caller should offer its own.
+  Future<List<Size>> getSupportedPreviewSizes(int cameraId) {
+    throw UnimplementedError(
+        'getSupportedPreviewSizes() is not implemented.');
+  }
+
   /// Gets the maximum supported manual focus distance.
   /// Returns the maximum focus distance supported by the camera.
   Future<double> getMaxFocusDistance(int cameraId) {

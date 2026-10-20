@@ -221,6 +221,15 @@ abstract class CameraApi {
   @ObjCSelector('initializeCamera:withImageFormat:')
   void initialize(int cameraId, PlatformImageFormatGroup imageFormat);
 
+  /// The picture sizes the camera can actually deliver, largest first.
+  ///
+  /// A resolution preset is a request, not a promise: a UVC camera takes the
+  /// closest format it has to the one asked for, so a caller that offers a list
+  /// of modes has to be able to offer only the ones that exist.
+  @async
+  @ObjCSelector('supportedPreviewSizesWithCameraId:')
+  List<PlatformSize> getSupportedPreviewSizes(int cameraId);
+
   /// Begins streaming frames from the camera.
   @async
   void startImageStream();

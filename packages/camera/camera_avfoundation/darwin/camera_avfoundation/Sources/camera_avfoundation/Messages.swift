@@ -829,6 +829,12 @@ protocol CameraApi {
   func create(cameraName: String, settings: PlatformMediaSettings, completion: @escaping (Result<Int64, Error>) -> Void)
   /// Initializes the camera with the given ID.
   func initialize(cameraId: Int64, imageFormat: PlatformImageFormatGroup, completion: @escaping (Result<Void, Error>) -> Void)
+  /// The picture sizes the camera can actually deliver, largest first.
+  ///
+  /// A resolution preset is a request, not a promise: a UVC camera takes the
+  /// closest format it has to the one asked for, so a caller that offers a list
+  /// of modes has to be able to offer only the ones that exist.
+  func getSupportedPreviewSizes(cameraId: Int64, completion: @escaping (Result<[PlatformSize], Error>) -> Void)
   /// Begins streaming frames from the camera.
   func startImageStream(completion: @escaping (Result<Void, Error>) -> Void)
   /// Stops streaming frames from the camera.
@@ -1019,6 +1025,28 @@ class CameraApiSetup {
       }
     } else {
       initializeChannel.setMessageHandler(nil)
+    }
+    /// The picture sizes the camera can actually deliver, largest first.
+    ///
+    /// A resolution preset is a request, not a promise: a UVC camera takes the
+    /// closest format it has to the one asked for, so a caller that offers a list
+    /// of modes has to be able to offer only the ones that exist.
+    let getSupportedPreviewSizesChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.camera_avfoundation.CameraApi.getSupportedPreviewSizes\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      getSupportedPreviewSizesChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let cameraIdArg = args[0] as! Int64
+        api.getSupportedPreviewSizes(cameraId: cameraIdArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      getSupportedPreviewSizesChannel.setMessageHandler(nil)
     }
     /// Begins streaming frames from the camera.
     let startImageStreamChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.camera_avfoundation.CameraApi.startImageStream\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)

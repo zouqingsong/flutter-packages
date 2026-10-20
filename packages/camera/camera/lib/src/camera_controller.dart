@@ -884,6 +884,25 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
+  /// The picture sizes this camera can deliver, largest first.
+  ///
+  /// A resolution preset asks for a size rather than guaranteeing it: a camera
+  /// settles on the closest format it has, so 720p on a camera that only offers
+  /// 1080p and 4K gives 1080p. Use this to offer only modes that exist.
+  ///
+  /// Empty when the platform cannot enumerate them, in which case any preset may
+  /// be offered and the resulting [previewSize] says what was chosen.
+  ///
+  /// Throws a [CameraException] if the platform reports a failure.
+  Future<List<Size>> getSupportedPreviewSizes() async {
+    _throwIfNotInitialized('getSupportedPreviewSizes');
+    try {
+      return await CameraPlatform.instance.getSupportedPreviewSizes(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
   /// Sets the manual focus distance for the camera.
   ///
   /// The [distance] should be between 0.0 (closest) and 1.0 (farthest).

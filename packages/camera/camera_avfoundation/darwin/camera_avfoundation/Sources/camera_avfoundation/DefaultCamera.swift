@@ -5,6 +5,7 @@
 import AVFoundation
 import CoreMedia
 import CoreMotion
+import QuartzCore
 #if os(iOS)
   import Flutter
   import UIKit
@@ -102,6 +103,25 @@ final class DefaultCamera: NSObject, Camera {
   /// Tracks the latest pixel buffer sent from AVFoundation's sample buffer delegate callback.
   /// Used to deliver the latest pixel buffer to the flutter engine via the `copyPixelBuffer` API.
   private var latestPixelBuffer: CVPixelBuffer?
+
+  /// Preview handoff counters, reported once a second while the session runs.
+  ///
+  /// A blinking preview is either frames that never arrive from the device, or
+  /// frames that arrive but are never pulled into the engine. Recording stays
+  /// clean in both cases, so these two rates are what separate them.
+  private struct PreviewHandoffStats {
+    var framesDelivered = 0
+    var framesPulled = 0
+    var emptyPulls = 0
+    var longestGap: CFTimeInterval = 0
+  }
+
+  /// Guards `handoffStats`, which is written from the sample buffer delegate and read
+  /// from the engine's texture thread.
+  private let handoffStatsLock = NSLock()
+  private var handoffStats = PreviewHandoffStats()
+  private var lastFrameArrival: CFTimeInterval = 0
+  private var handoffStatsTimer: DispatchSourceTimer?
 
   private var videoRecordingPath: String?
   private(set) var isRecording = false
@@ -229,6 +249,11 @@ final class DefaultCamera: NSObject, Camera {
       mediaSettingsAVWrapper.beginConfiguration(for: videoCaptureSession)
       defer { mediaSettingsAVWrapper.commitConfiguration(for: videoCaptureSession) }
 
+      // Before the preset and the frame-rate work, so both describe the format that
+      // will actually be delivered rather than the one the camera happened to be on.
+      try applyDeviceFormat(
+        for: mediaSettings.resolutionPreset,
+        deviceIsLocked: true)
       try setCaptureSessionPreset(mediaSettings.resolutionPreset)
 
       (captureDevice.flutterActiveFormat, framesPerSecond) = FormatUtils.findBestFormat(
@@ -247,6 +272,7 @@ final class DefaultCamera: NSObject, Camera {
     } else {
       // If the frame rate is not important fall to a less restrictive
       // behavior (no configuration locking).
+      try applyDeviceFormat(for: mediaSettings.resolutionPreset)
       try setCaptureSessionPreset(mediaSettings.resolutionPreset)
     }
 
@@ -285,11 +311,18 @@ final class DefaultCamera: NSObject, Camera {
     // Stop touching the writer from the (now dead) sample buffer delegate; the in-progress file
     // is left as-is since there is no more hardware to flush a clean finishWriting() from.
     isRecording = false
+    NSLog("⚠️ capture device disconnected: \(captureDevice.avDevice.localizedName)")
     reportErrorMessage("Camera device was disconnected")
   }
 
   @objc private func captureSessionWasInterrupted(notification: NSNotification) {
     isRecordingDisconnected = true
+    // The OS pausing the session is the most common cause of a preview that
+    // blanks for a moment and comes back. Log it so a field report can be
+    // matched against the moments the picture dropped. macOS has no interruption
+    // reason key (that is iOS only), so the payload keys are logged instead.
+    let keys = notification.userInfo?.keys.map(String.init).sorted() ?? []
+    NSLog("⚠️ capture session interrupted (userInfo keys: \(keys))")
   }
 
   @objc private func captureSessionRuntimeError(notification: NSNotification) {
@@ -319,9 +352,10 @@ final class DefaultCamera: NSObject, Camera {
           }
         }
       #else
-        // macOS has no input-priority preset, so the session preset always governs what is
-        // delivered and setting activeFormat only desynchronises the reported preview size.
-        // Pick the highest preset the session accepts instead.
+        // macOS has no input-priority preset, and a preset alone does not change what a
+        // UVC camera delivers (see `applyDeviceFormat`, which pins the device format
+        // before this runs). The preset is still set: it keeps the rate and the audio
+        // session in step, and it is what a built-in camera follows.
         let macOSPresets: [AVCaptureSession.Preset] = [
           .hd4K3840x2160, .hd1920x1080, .high, .hd1280x720,
         ]
@@ -391,6 +425,140 @@ final class DefaultCamera: NSObject, Camera {
     let size = videoDimensionsConverter(captureDevice.flutterActiveFormat)
     previewSize = CGSize(width: CGFloat(size.width), height: CGFloat(size.height))
     audioCaptureSession.sessionPreset = videoCaptureSession.sessionPreset
+    logActiveFormat("preset \(resolutionPreset)")
+  }
+
+  /// The picture sizes this camera can deliver, largest first.
+  ///
+  /// Read from the device's own formats rather than from the preset list: a UVC
+  /// camera publishes three or four of them, and any other size a caller offers is
+  /// one it cannot produce. This is what lets a caller offer only what exists.
+  func supportedPreviewSizes() -> [CGSize] {
+    var sizes: [CGSize] = []
+    for format in captureDevice.flutterFormats {
+      let dimensions = videoDimensionsConverter(format)
+      let size = CGSize(
+        width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
+      if size.width > 0, size.height > 0, !sizes.contains(size) {
+        sizes.append(size)
+      }
+    }
+    return sizes.sorted { $0.width * $0.height > $1.width * $1.height }
+  }
+
+  /// Pins the camera to the format a preset asks for.
+  ///
+  /// A session preset does not decide what a UVC camera delivers. Measured on a
+  /// FlexionCam with every preset from `.cif352x288` to `.hd4K3840x2160`: the device
+  /// kept delivering 1920×1080 in all of them, so asking for 4K gave the same picture
+  /// as asking for 240p. Setting the device's own format did change the output, and it
+  /// wins over a conflicting preset in both directions.
+  ///
+  /// macOS has no `.inputPriority` preset to hand that decision to the device, so it is
+  /// made here. A camera that does not offer the requested size opens at the closest
+  /// one it has, which is what the reported preview size then shows.
+  ///
+  /// - Parameter deviceIsLocked: whether the caller already holds the device for
+  ///   configuration, as the frame-rate path in `init` does.
+  private func applyDeviceFormat(
+    for resolutionPreset: PlatformResolutionPreset,
+    deviceIsLocked: Bool = false
+  ) throws {
+    #if os(macOS)
+      guard let target = DefaultCamera.targetDimensions(for: resolutionPreset) else { return }
+      let formats = captureDevice.flutterFormats
+      guard !formats.isEmpty else { return }
+
+      func dimensions(of format: CaptureDeviceFormat) -> CMVideoDimensions {
+        videoDimensionsConverter(format)
+      }
+
+      /// Exact size if the camera has it, else the smallest one that is still at least
+      /// as large, else the largest it has.
+      func closest(among candidates: [CaptureDeviceFormat]) -> CaptureDeviceFormat? {
+        if let exact = candidates.first(where: {
+          let size = dimensions(of: $0)
+          return size.width == target.width && size.height == target.height
+        }) {
+          return exact
+        }
+        let atLeastTarget = candidates.filter {
+          let size = dimensions(of: $0)
+          return size.width * size.height >= target.width * target.height
+        }
+        if let smallest = atLeastTarget.min(by: { left, right in
+          let a = dimensions(of: left), b = dimensions(of: right)
+          return a.width * a.height < b.width * b.height
+        }) {
+          return smallest
+        }
+        return candidates.max(by: { left, right in
+          let a = dimensions(of: left), b = dimensions(of: right)
+          return a.width * a.height < b.width * b.height
+        })
+      }
+
+      // A device can expose formats that differ only in their pixel layout, and 4:3
+      // stills modes sit alongside 16:9 video ones. Staying on the layout already in
+      // use keeps the choice to the size that was asked for.
+      let currentSubtype = CMFormatDescriptionGetMediaSubType(
+        captureDevice.flutterActiveFormat.formatDescription)
+      let sameSubtype = formats.filter {
+        CMFormatDescriptionGetMediaSubType($0.formatDescription) == currentSubtype
+      }
+      guard let chosen = closest(among: sameSubtype) ?? closest(among: formats) else { return }
+
+      let current = dimensions(of: captureDevice.flutterActiveFormat)
+      let wanted = dimensions(of: chosen)
+      guard wanted.width != current.width || wanted.height != current.height else { return }
+
+      if !deviceIsLocked {
+        try mediaSettingsAVWrapper.lockDevice(captureDevice)
+        defer { mediaSettingsAVWrapper.unlockDevice(captureDevice) }
+        captureDevice.flutterActiveFormat = chosen
+      } else {
+        captureDevice.flutterActiveFormat = chosen
+      }
+      NSLog(
+        "🔧 device format set to \(wanted.width)x\(wanted.height) (asked \(target.width)x"
+          + "\(target.height) for \(resolutionPreset))")
+    #endif
+  }
+
+  #if os(macOS)
+    /// The size a preset asks for, so a device format can be matched against it.
+    private static func targetDimensions(
+      for resolutionPreset: PlatformResolutionPreset
+    ) -> (width: Int32, height: Int32)? {
+      switch resolutionPreset {
+      case .max, .ultraHigh: return (3840, 2160)
+      case .veryHigh: return (1920, 1080)
+      case .high: return (1280, 720)
+      case .medium: return (640, 480)
+      case .low: return (352, 288)
+      default: return nil
+      }
+    }
+  #endif
+
+  /// Logs the mode AVFoundation actually selected.
+  ///
+  /// A preview that stalls is usually a bandwidth story, and the number that
+  /// decides it is the delivered frame size and rate — neither is visible from
+  /// Dart, and `previewSize` only reports dimensions.
+  private func logActiveFormat(_ context: String) {
+    let description = captureDevice.avDevice.activeFormat.formatDescription
+    let dimensions = CMVideoFormatDescriptionGetDimensions(description)
+    let duration = captureDevice.avDevice.activeVideoMaxFrameDuration
+    let fps = duration.value > 0
+      ? Double(duration.timescale) / Double(duration.value)
+      : 0
+    // 32BGRA is four bytes per pixel, which is what the texture path copies.
+    let megabytes = Double(dimensions.width * dimensions.height * 4) / 1_048_576
+    NSLog(
+      "📐 active format (\(context)): \(dimensions.width)x\(dimensions.height) @ "
+        + String(format: "%.1f", fps) + " fps, "
+        + String(format: "%.1f", megabytes) + " MB per BGRA frame")
   }
 
   /// Finds the highest available non-square resolution in terms of pixel count for the given device.
@@ -566,13 +734,49 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   func start() {
+    // Logged unconditionally like the rest of this file: a UVC preview that
+    // blinks usually means the session is being stopped and restarted, and the
+    // system log is the only place that shows it without a debugger attached.
+    NSLog("🎥 capture session start (device: \(captureDevice.avDevice.localizedName))")
     videoCaptureSession.startRunning()
     audioCaptureSession.startRunning()
+    startHandoffStatsReporting()
   }
 
   func stop() {
+    NSLog("🎥 capture session stop (device: \(captureDevice.avDevice.localizedName))")
+    stopHandoffStatsReporting()
     videoCaptureSession.stopRunning()
     audioCaptureSession.stopRunning()
+  }
+
+  private func startHandoffStatsReporting() {
+    stopHandoffStatsReporting()
+    lastFrameArrival = 0
+    let timer = DispatchSource.makeTimerSource(queue: captureSessionQueue)
+    timer.schedule(deadline: .now() + 1, repeating: 1)
+    timer.setEventHandler { [weak self] in
+      self?.reportHandoffStats()
+    }
+    timer.resume()
+    handoffStatsTimer = timer
+  }
+
+  private func stopHandoffStatsReporting() {
+    handoffStatsTimer?.cancel()
+    handoffStatsTimer = nil
+  }
+
+  private func reportHandoffStats() {
+    handoffStatsLock.lock()
+    let stats = handoffStats
+    handoffStats = PreviewHandoffStats()
+    handoffStatsLock.unlock()
+    guard stats.framesDelivered > 0 || stats.framesPulled > 0 else { return }
+    NSLog(
+      "🖼 preview handoff: delivered \(stats.framesDelivered)/s, pulled \(stats.framesPulled)/s, "
+        + "empty pulls \(stats.emptyPulls), longest gap "
+        + String(format: "%.0f", stats.longestGap * 1000) + " ms")
   }
 
   func startVideoRecording(
@@ -1871,6 +2075,7 @@ final class DefaultCamera: NSObject, Camera {
     guard !isCaptureDeviceDisconnected else { return }
     if output == captureVideoOutput.avOutput {
       if let newBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+        recordFrameArrival()
 
         pixelBufferSynchronizationQueue.sync {
           latestPixelBuffer = newBuffer
@@ -2105,12 +2310,39 @@ final class DefaultCamera: NSObject, Camera {
     }
   }
 
+  /// Records delivery timing. A gap much longer than the frame interval is the
+  /// blink itself, so it is logged the moment it is measured rather than only
+  /// showing up in the per-second average.
+  private func recordFrameArrival() {
+    let now = CACurrentMediaTime()
+    let gap = lastFrameArrival > 0 ? now - lastFrameArrival : 0
+    lastFrameArrival = now
+
+    handoffStatsLock.lock()
+    handoffStats.framesDelivered += 1
+    if gap > handoffStats.longestGap {
+      handoffStats.longestGap = gap
+    }
+    handoffStatsLock.unlock()
+
+    if gap > 0.2 {
+      NSLog("⚠️ preview frame gap " + String(format: "%.0f", gap * 1000) + " ms")
+    }
+  }
+
   func copyPixelBuffer() -> Unmanaged<CVPixelBuffer>? {
     var pixelBuffer: CVPixelBuffer?
     pixelBufferSynchronizationQueue.sync {
       pixelBuffer = latestPixelBuffer
       latestPixelBuffer = nil
     }
+
+    handoffStatsLock.lock()
+    handoffStats.framesPulled += 1
+    if pixelBuffer == nil {
+      handoffStats.emptyPulls += 1
+    }
+    handoffStatsLock.unlock()
 
     if let buffer = pixelBuffer {
       return Unmanaged.passRetained(buffer)
@@ -2131,6 +2363,7 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   deinit {
+    stopHandoffStatsReporting()
     #if os(iOS)
       motionManager.stopAccelerometerUpdates()
     #endif

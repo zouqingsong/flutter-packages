@@ -155,6 +155,27 @@ public final class CameraPlugin: NSObject, FlutterPlugin {
 
 extension CameraPlugin: CameraApi {
 
+  /// The sizes the camera can deliver, so a caller can offer only those.
+  ///
+  /// Asked on the capture session queue because it reads the device's formats,
+  /// which the format selection already touches from there.
+  func getSupportedPreviewSizes(
+    cameraId: Int64,
+    completion: @escaping (Result<[PlatformSize], any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      guard let camera = self?.camera else {
+        completion(.success([]))
+        return
+      }
+      completion(
+        .success(
+          camera.supportedPreviewSizes().map {
+            PlatformSize(width: Double($0.width), height: Double($0.height))
+          }))
+    }
+  }
+
   func getAvailableCameras(
     completion: @escaping (Result<[PlatformCameraDescription], any Error>) -> Void
   ) {

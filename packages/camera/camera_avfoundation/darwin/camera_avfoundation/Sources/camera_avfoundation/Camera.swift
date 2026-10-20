@@ -35,6 +35,12 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
 
   func setUpCaptureSessionForAudioIfNeeded()
 
+  /// The picture sizes this camera can deliver, largest first.
+  ///
+  /// A preset is a request rather than a promise, so a caller that offers a list
+  /// of modes needs the sizes the device actually has.
+  func supportedPreviewSizes() -> [CGSize]
+
   /// Informs the Dart side of the plugin of the current camera state and capabilities.
   func reportInitializationState()
 
@@ -225,4 +231,13 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
   )
 
   func close()
+}
+
+extension Camera {
+  /// Cameras that do not enumerate their formats report none, which leaves the
+  /// caller offering its own list. Only a real capture device can answer this, and
+  /// the test doubles have no formats to report.
+  func supportedPreviewSizes() -> [CGSize] {
+    return []
+  }
 }
