@@ -123,6 +123,15 @@ final class DefaultCamera: NSObject, Camera {
   private var lastFrameArrival: CFTimeInterval = 0
   private var handoffStatsTimer: DispatchSourceTimer?
 
+  /// Where the preview diagnostics are written.
+  ///
+  /// Not the unified log: on this machine the process's `NSLog` output never
+  /// arrived there, so a report from a field machine had nothing to read. A file
+  /// in the app's own temporary directory is always writable, and its path is
+  /// printed once per session so it can be found afterwards.
+  private var diagFile: FileHandle?
+  private var diagPath: String?
+
   private var videoRecordingPath: String?
   private(set) var isRecording = false
   private var isRecordingPaused = false
@@ -311,7 +320,7 @@ final class DefaultCamera: NSObject, Camera {
     // Stop touching the writer from the (now dead) sample buffer delegate; the in-progress file
     // is left as-is since there is no more hardware to flush a clean finishWriting() from.
     isRecording = false
-    NSLog("⚠️ capture device disconnected: \(captureDevice.avDevice.localizedName)")
+    writeDiag("capture device disconnected: \(captureDevice.avDevice.localizedName)")
     reportErrorMessage("Camera device was disconnected")
   }
 
@@ -322,7 +331,7 @@ final class DefaultCamera: NSObject, Camera {
     // matched against the moments the picture dropped. macOS has no interruption
     // reason key (that is iOS only), so the payload keys are logged instead.
     let keys = notification.userInfo?.keys.map(String.init).sorted() ?? []
-    NSLog("⚠️ capture session interrupted (userInfo keys: \(keys))")
+    writeDiag("capture session interrupted (userInfo keys: \(keys))")
   }
 
   @objc private func captureSessionRuntimeError(notification: NSNotification) {
@@ -519,8 +528,8 @@ final class DefaultCamera: NSObject, Camera {
       } else {
         captureDevice.flutterActiveFormat = chosen
       }
-      NSLog(
-        "🔧 device format set to \(wanted.width)x\(wanted.height) (asked \(target.width)x"
+      writeDiag(
+        "device format set to \(wanted.width)x\(wanted.height) (asked \(target.width)x"
           + "\(target.height) for \(resolutionPreset))")
     #endif
   }
@@ -555,8 +564,8 @@ final class DefaultCamera: NSObject, Camera {
       : 0
     // 32BGRA is four bytes per pixel, which is what the texture path copies.
     let megabytes = Double(dimensions.width * dimensions.height * 4) / 1_048_576
-    NSLog(
-      "📐 active format (\(context)): \(dimensions.width)x\(dimensions.height) @ "
+    writeDiag(
+      "active format (\(context)): \(dimensions.width)x\(dimensions.height) @ "
         + String(format: "%.1f", fps) + " fps, "
         + String(format: "%.1f", megabytes) + " MB per BGRA frame")
   }
@@ -736,18 +745,24 @@ final class DefaultCamera: NSObject, Camera {
   func start() {
     // Logged unconditionally like the rest of this file: a UVC preview that
     // blinks usually means the session is being stopped and restarted, and the
-    // system log is the only place that shows it without a debugger attached.
-    NSLog("🎥 capture session start (device: \(captureDevice.avDevice.localizedName))")
+    // log is the only place that shows it without a debugger attached.
+    openDiagFile()
+    writeDiag("capture session start")
     videoCaptureSession.startRunning()
     audioCaptureSession.startRunning()
     startHandoffStatsReporting()
   }
 
   func stop() {
-    NSLog("🎥 capture session stop (device: \(captureDevice.avDevice.localizedName))")
+    writeDiag("capture session stop")
     stopHandoffStatsReporting()
     videoCaptureSession.stopRunning()
     audioCaptureSession.stopRunning()
+    // Release the frame the handoff was holding, so a stopped camera does not
+    // keep a full-size picture alive.
+    pixelBufferSynchronizationQueue.sync {
+      latestPixelBuffer = nil
+    }
   }
 
   private func startHandoffStatsReporting() {
@@ -773,10 +788,35 @@ final class DefaultCamera: NSObject, Camera {
     handoffStats = PreviewHandoffStats()
     handoffStatsLock.unlock()
     guard stats.framesDelivered > 0 || stats.framesPulled > 0 else { return }
-    NSLog(
-      "🖼 preview handoff: delivered \(stats.framesDelivered)/s, pulled \(stats.framesPulled)/s, "
+    writeDiag(
+      "handoff: delivered \(stats.framesDelivered)/s, pulled \(stats.framesPulled)/s, "
         + "empty pulls \(stats.emptyPulls), longest gap "
         + String(format: "%.0f", stats.longestGap * 1000) + " ms")
+  }
+
+  /// Writes one diagnostic line to the session's log file and to the system log.
+  ///
+  /// The file is the channel that works: `log show` never saw this process's
+  /// `NSLog` output, and a flicker that only happens on the customer's machine is
+  /// not something a debugger can be attached to.
+  private func writeDiag(_ message: String) {
+    NSLog("%@", message)
+    guard let file = diagFile, let data = (message + "\n").data(using: .utf8) else { return }
+    file.write(data)
+  }
+
+  /// Opens the session's log file, once, and says where it is.
+  private func openDiagFile() {
+    guard diagFile == nil else { return }
+    let path = NSTemporaryDirectory() + "camera_preview_diag.log"
+    if !FileManager.default.fileExists(atPath: path) {
+      FileManager.default.createFile(atPath: path, contents: nil)
+    }
+    guard let file = FileHandle(forWritingAtPath: path) else { return }
+    file.seekToEndOfFile()
+    diagFile = file
+    diagPath = path
+    writeDiag("=== session start, device: \(captureDevice.avDevice.localizedName)")
   }
 
   func startVideoRecording(
@@ -2326,15 +2366,20 @@ final class DefaultCamera: NSObject, Camera {
     handoffStatsLock.unlock()
 
     if gap > 0.2 {
-      NSLog("⚠️ preview frame gap " + String(format: "%.0f", gap * 1000) + " ms")
+      writeDiag("preview frame gap " + String(format: "%.0f", gap * 1000) + " ms")
     }
   }
 
   func copyPixelBuffer() -> Unmanaged<CVPixelBuffer>? {
     var pixelBuffer: CVPixelBuffer?
     pixelBufferSynchronizationQueue.sync {
+      // Deliberately not cleared. The engine asks for a frame more than once for
+      // the same composite (prepare, then draw), and an empty answer is drawn as
+      // nothing — one blank frame, which is what the flicker looked like. Keeping
+      // the last frame means a repeat ask gets the picture the screen already had.
+      // The buffer is replaced on the next arrival, so this holds one frame, not a
+      // queue.
       pixelBuffer = latestPixelBuffer
-      latestPixelBuffer = nil
     }
 
     handoffStatsLock.lock()
