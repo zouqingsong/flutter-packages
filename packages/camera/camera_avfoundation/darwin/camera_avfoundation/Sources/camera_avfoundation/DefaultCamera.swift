@@ -779,9 +779,29 @@ final class DefaultCamera: NSObject, Camera {
   private func enableMaxResolutionPhoto(_ settings: AVCapturePhotoSettings) {
     guard mediaSettings.resolutionPreset == .max else { return }
     if #available(macOS 13.0, iOS 16.0, *) {
-      // Request exactly the output's own ceiling (set in setCaptureSessionPreset) so this
-      // can never exceed it, which would otherwise throw NSInvalidArgumentException.
-      settings.maxPhotoDimensions = capturePhotoOutput.avOutput.maxPhotoDimensions
+      // Ask the format that is active *now*, and only for a size it lists.
+      // AVFoundation throws NSInvalidArgumentException when the settings name a
+      // dimension the active format does not offer, and two things routinely
+      // make that happen: the output's ceiling was recorded for the format of
+      // the moment the preset was chosen (a session preset takes effect
+      // asynchronously), and USB cameras often report no still dimensions at
+      // all. Leaving the setting alone captures at the format's default size,
+      // which is what happens when it is not supported anyway.
+      let supported = captureDevice.flutterActiveFormat.avFormat.supportedMaxPhotoDimensions
+      guard
+        let largest = supported.max(by: {
+          $0.width * $0.height < $1.width * $1.height
+        })
+      else {
+        return
+      }
+      let ceiling = capturePhotoOutput.avOutput.maxPhotoDimensions
+      if ceiling.width != largest.width || ceiling.height != largest.height {
+        // Bring the output's own ceiling to the format that is active, so the
+        // request below stays within it.
+        capturePhotoOutput.avOutput.maxPhotoDimensions = largest
+      }
+      settings.maxPhotoDimensions = largest
     } else {
       settings.isHighResolutionPhotoEnabled = true
     }

@@ -1,3 +1,14 @@
+## 0.10.5
+
+* Fixes a crash when taking a still picture with `ResolutionPreset.max`: the
+  photo settings asked for the output's recorded `maxPhotoDimensions`, which can
+  belong to a format that is no longer active once a session preset has settled
+  (an iPhone Continuity Camera reports 1920x1080 and 1280x720 for two of its
+  formats). AVFoundation throws `NSInvalidArgumentException` when the settings
+  name a size the active format does not list, and that kills the app. The
+  dimensions are now read from the active format at capture time, and left alone
+  when it lists none (USB cameras often report none).
+
 ## 0.10.4
 
 * Records video as H.264 instead of accepting AVFoundation's recommended codec,
