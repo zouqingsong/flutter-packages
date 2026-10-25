@@ -1,0 +1,32 @@
+name: adaptive_viewport
+description: >-
+  What a phone's screen leaves an app to lay out in: the safe area without
+  UIKit's symmetric landscape insets, camera holes and cutouts as obstacles,
+  the tabletop fold of a half-folded foldable, and a pure planner that turns
+  those into the rects of a full-bleed media stage.
+
+publish_to: 'none'
+
+version: 0.1.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      # Android needs no native code: Flutter already reports folds, hinges
+      # and cutouts in MediaQuery.displayFeatures, and its insets are
+      # one-sided.
+      ios:
+        pluginClass: AdaptiveViewportPlugin
