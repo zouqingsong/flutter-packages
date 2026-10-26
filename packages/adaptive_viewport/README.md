@@ -23,6 +23,18 @@ to the devices someone happened to test.
    the column, edge to edge, with no stripe beside it. Controls are
    aligned to the screen's edge. Only what lies beside the hole or the
    read-outs (the top bar) keeps the inset.
+
+   **The scene is not a safe-area panel.** Main pages and game routes paint
+   their entire allocated box, including camera-side columns and the area
+   behind the home indicator. Do not wrap a whole scene or its route wrapper
+   in `SafeArea`; apply insets to navigation, HUD and actionable controls
+   locally. A game board is part of the scene, not a toolbar to inset for its
+   full height. Move only targets or read-outs that actually intersect the
+   camera/clock/signal obstacles. Matching the scene's background colour in
+   a reserved stripe is not a full-bleed fix.
+
+   Size route contents from their parent constraints (`SizedBox.expand`),
+   not a cached window size captured before navigation or rotation.
 3. **Nothing on a hole or a crease.** A control that would land on a camera
    hole moves along the edge it is on, never into the middle. Nothing goes
    on a book fold's crease.
@@ -118,6 +130,13 @@ to the devices someone happened to test.
    Page tests put each page where the app puts it (in the shell, below the
    bar or beside the sidebar it really has), open its palettes, and fail on
    any control not wholly inside the window.
+   Test the actual route wrappers, not just their inner controls: assert
+   that scene/background paint bounds reach all four allocated edges,
+   especially the right and bottom of the Duo cover in both landscapes.
+   Assert camera/read-out exclusion separately for HUD and gameplay targets;
+   "no overflow" alone does not detect an empty safe-area stripe. Include
+   embedded boxes and posture/size changes so no stale window dimensions
+   survive a transition.
 
 10. **Learning screens keep the task clear and the next action obvious.**
     SmartChinese and ZiLele share the geometry rules, not a camera app's look.

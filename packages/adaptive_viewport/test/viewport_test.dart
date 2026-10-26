@@ -157,6 +157,63 @@ void main() {
   });
 
   group('BoxViewportBuilder', () {
+    testWidgets('fractional flex tiles keep their measured camera coordinates',
+        (tester) async {
+      tester.view.physicalSize = const Size(466, 678);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final seen = <String, ScreenViewport>{};
+      await tester.pumpWidget(MediaQuery(
+        data: const MediaQueryData(
+          size: Size(466, 678),
+          padding: EdgeInsets.only(right: 84, bottom: 34),
+          viewPadding: EdgeInsets.only(right: 84, bottom: 34),
+        ),
+        child: ViewportScope(
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Stack(children: [
+              Positioned(
+                left: 73.6,
+                top: 151,
+                width: 325.3,
+                height: 431.6666666666667,
+                child: Column(children: [
+                  for (var row = 0; row < 3; row++) ...[
+                    if (row > 0) const SizedBox(height: 10),
+                    Expanded(
+                        child: Row(children: [
+                      for (var col = 0; col < 3; col++) ...[
+                        if (col > 0) const SizedBox(width: 6),
+                        Expanded(
+                            child: BoxViewportBuilder(
+                          key: ValueKey('tile-$row-$col'),
+                          builder: (context, viewport) {
+                            seen['$row-$col'] = viewport;
+                            return const SizedBox.expand();
+                          },
+                        )),
+                      ],
+                    ])),
+                  ],
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ));
+      for (var frame = 0; frame < 5; frame++) {
+        await tester.pump();
+      }
+      final tile = seen['0-2']!;
+      final rect = tester.getRect(find.byKey(const ValueKey('tile-0-2')));
+      expect(tile.padding.bottom, 0);
+      expect(tile.holes, hasLength(1));
+      expect(tile.holes.single.left, closeTo(382 - rect.left, 0.001));
+      expect(tile.holes.single.bottom, closeTo(158 - rect.top, 0.001));
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('plans for the box below an app bar, not the window',
         (tester) async {
       tester.view.physicalSize = const Size(402, 874);

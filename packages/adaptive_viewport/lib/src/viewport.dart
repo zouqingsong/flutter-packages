@@ -321,7 +321,10 @@ class _BoxViewportBuilderState extends State<BoxViewportBuilder> {
               : window.size.height,
         );
         final measured = _measured;
-        final origin = measured != null && measured.size == size
+        // Flex arithmetic can differ from the laid-out size by a fraction.
+        final origin = measured != null &&
+                (measured.width - size.width).abs() < 0.5 &&
+                (measured.height - size.height).abs() < 0.5
             ? measured.topLeft
             : Offset(
                 rtl ? 0 : math.max(0.0, window.size.width - size.width),
