@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:adaptive_viewport/adaptive_viewport.dart';
 import 'package:adaptive_viewport/testing.dart';
 import 'package:flutter/widgets.dart';
@@ -193,8 +195,19 @@ void main() {
 
     test('full screen: the actions step below a hole in their corner', () {
       final plan = _plan(find('iPhone Duo cover portrait'), fullscreen: true);
-      final hole = plan.obstacles.single;
-      expect(plan.actionsTop, greaterThan(hole.bottom));
+      final lowest = plan.obstacles.map((o) => o.bottom).reduce(max);
+      expect(plan.actionsTop, greaterThan(lowest));
+    });
+
+    test('upright, a side column the hole accounts for is given back', () {
+      // The cover screen's 84 pt column holds the hole and the clock at its
+      // top: the picture and its overlays reach the edge, and only what is
+      // up there steps around them.
+      final plan = _plan(find('iPhone Duo cover portrait'));
+      expect(plan.mode, StageMode.column);
+      expect(plan.safe.right, 0);
+      expect(plan.overlayInsets.right, 0);
+      expect(plan.obstacles, hasLength(2));
     });
 
     test('tabletop: the deck keeps the home indicator', () {

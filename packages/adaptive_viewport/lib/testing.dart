@@ -126,10 +126,12 @@ class ScreenProfile {
     const ScreenProfile('iPhone SE landscape', Size(667, 375)),
     // iPhone Duo: a cover screen with a punch hole, an inner screen that
     // half-folds.
+    // Upright the cover screen has no status bar: the hole, the clock and the
+    // signal ring are in an 84 pt column down the right (measured).
     const ScreenProfile(
       'iPhone Duo cover portrait',
       Size(466, 678),
-      padding: EdgeInsets.only(top: 70, bottom: 34),
+      padding: EdgeInsets.only(right: 84, bottom: 34),
     ),
     const ScreenProfile(
       'iPhone Duo cover landscapeLeft',
@@ -218,6 +220,27 @@ class ScreenProfile {
       'Android compact portrait',
       Size(360, 640),
       padding: EdgeInsets.only(top: 24, bottom: 24),
+      platform: _android,
+    ),
+    const ScreenProfile(
+      'Android compact landscape',
+      Size(640, 360),
+      padding: EdgeInsets.only(top: 24, bottom: 24),
+      platform: _android,
+    ),
+    // The narrowest phone in use: a small phone, or any phone with the
+    // display size turned up, with three-button navigation — a bar along the
+    // bottom upright, and down the side on its side.
+    const ScreenProfile(
+      'Android narrow portrait',
+      Size(320, 658),
+      padding: EdgeInsets.only(top: 24, bottom: 48),
+      platform: _android,
+    ),
+    const ScreenProfile(
+      'Android narrow landscape',
+      Size(658, 320),
+      padding: EdgeInsets.only(top: 24, right: 48),
       platform: _android,
     ),
     const ScreenProfile(

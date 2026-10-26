@@ -19,8 +19,9 @@ enum ViewerMode {
   /// picture must not be covered.
   docked,
 
-  /// A foldable half-open like a laptop: the picture above the fold, the
-  /// transport and the strip on the deck below.
+  /// A foldable half-open like a laptop: the picture alone above the fold,
+  /// and on the deck below it, from the fold down, the top bar, the open
+  /// tool palette and the bottom bar — the order a live stage's deck uses.
   tabletop,
 }
 
@@ -38,6 +39,7 @@ class ViewerRequest {
     this.panel = false,
     this.panelWidth = 320,
     this.keepPictureClear = false,
+    this.toolsHeight = 0,
   });
 
   final ScreenViewport viewport;
@@ -70,6 +72,10 @@ class ViewerRequest {
 
   /// Never put a bar over the picture: diagnostic images, measurements.
   final bool keepPictureClear;
+
+  /// Height of the tool palette that is open (drawing, processing), or 0.
+  /// It goes where [ViewerPlan.tools] says.
+  final double toolsHeight;
 }
 
 /// Where a viewer's picture, bars and panel go, in window coordinates.
@@ -90,6 +96,7 @@ class ViewerPlan {
     required this.deck,
     required this.overlayInsets,
     required this.fold,
+    this.tools,
   });
 
   final ViewerMode mode;
@@ -127,6 +134,12 @@ class ViewerPlan {
 
   final TabletopFold? fold;
 
+  /// Where the open tool palette goes, inset from the window's edges and its
+  /// safe area: just above the bottom bar, or on the deck between the two
+  /// bars. Null with none open ([ViewerRequest.toolsHeight] 0) or in full
+  /// screen.
+  final Rect? tools;
+
   bool get fullscreen => topBar == null;
 }
 
@@ -140,12 +153,19 @@ class ViewerPlan {
 ///    picture must stay clear; otherwise they float over it and get out of
 ///    its way ([ChromePolicy]).
 /// 2. The bars keep the whole safe area on their outer edges, so nothing in
-///    them meets a notch, island, hole or home indicator.
+///    them meets a notch, island, hole or home indicator — except a side
+///    inset a camera hole accounts for (the iPhone Duo's cover screen), which
+///    only a bar beside the hole or its read-outs keeps.
 /// 3. A side panel is shown only beside the picture, never over it: on a
 ///    wide window, or on the far side of a book crease.
-/// 4. Half-folded, the picture is above the fold, the transport and strip
-///    below; nothing on the crease.
+/// 4. Half-folded, the picture is above the fold, and everything that is
+///    pressed below it: the top bar at the fold, the open tool palette under
+///    it, then the bottom bar centred in what is left — the order the live
+///    stage's deck uses, so the two screens put the same things in the same
+///    places. Nothing on the crease.
 /// 5. Full screen is the picture alone, edge to edge.
+/// 6. An open tool palette sits just above the bottom bar, the same place a
+///    live stage puts its tools: at the foot of the picture, over it.
 abstract final class ViewerPlanner {
   /// The share of the fitted picture the bars may cost before they float
   /// over it instead.
@@ -153,6 +173,12 @@ abstract final class ViewerPlanner {
 
   /// Narrowest a side panel is worth showing at.
   static const double minPanelWidth = 240;
+
+  /// Between a tool palette and the window's edges or a bar.
+  static const double toolsMargin = 8;
+
+  /// From a tool palette's sides to the window's edges.
+  static const double toolsSide = 16;
 
   static ViewerPlan plan(ViewerRequest request) {
     final viewport = request.viewport;
@@ -178,14 +204,47 @@ abstract final class ViewerPlanner {
       padding.bottom,
     );
 
-    // Rule 4.
+    // Rule 4: the picture has the upright half to itself, and everything
+    // that is pressed is on the deck, where the hand is — the top bar's back
+    // button and name first, from the fold down, then the transport.
     if (fold != null) {
       final picture = Rect.fromLTRB(0, 0, window.width, fold.top);
       final deck = Rect.fromLTRB(0, fold.bottom, window.width, window.height);
+      final deckBottom = deck.bottom - padding.bottom;
       final topBar = fullscreen
           ? null
-          : Rect.fromLTWH(0, 0, window.width,
-              math.min(padding.top + request.topBarHeight, picture.height));
+          : Rect.fromLTWH(0, deck.top, window.width,
+              math.min(request.topBarHeight, deck.height / 2));
+      Rect? tools;
+      Rect? bottomBar;
+      if (topBar != null) {
+        final bottomHeight = math.min(
+          request.bottomBarHeight + request.filmstripHeight,
+          deckBottom - topBar.bottom,
+        );
+        if (request.toolsHeight > 0) {
+          tools = Rect.fromLTRB(
+            padding.left + toolsSide,
+            topBar.bottom + toolsMargin,
+            window.width - padding.right - toolsSide,
+            topBar.bottom + toolsMargin + request.toolsHeight,
+          );
+        }
+        // Centred in what the top bar and the tools leave, as the live
+        // stage centres its toolbar; never pushed off the deck.
+        final above = tools == null ? topBar.bottom : tools.bottom;
+        final room = deckBottom - above;
+        final top = math.min(
+          above + math.max(0.0, (room - bottomHeight) / 2),
+          deckBottom - bottomHeight,
+        );
+        bottomBar = Rect.fromLTWH(
+          0,
+          math.max(topBar.bottom, top),
+          window.width,
+          bottomHeight,
+        );
+      }
       return ViewerPlan(
         mode: ViewerMode.tabletop,
         screen: screen,
@@ -193,18 +252,9 @@ abstract final class ViewerPlanner {
         window: window,
         picture: picture,
         topBar: topBar,
-        bottomBar: fullscreen
-            ? null
-            : Rect.fromLTWH(
-                0,
-                deck.top,
-                window.width,
-                math.min(
-                  request.bottomBarHeight + request.filmstripHeight,
-                  deck.height - padding.bottom,
-                ),
-              ),
-        topBarPadding: topPadding,
+        bottomBar: bottomBar,
+        tools: tools,
+        topBarPadding: EdgeInsets.fromLTRB(padding.left, 0, padding.right, 0),
         bottomBarPadding:
             EdgeInsets.fromLTRB(padding.left, 0, padding.right, 0),
         panel: null,
@@ -212,7 +262,7 @@ abstract final class ViewerPlanner {
         deck: deck,
         overlayInsets: EdgeInsets.fromLTRB(
           padding.left,
-          topBar?.height ?? padding.top,
+          padding.top,
           padding.right,
           0,
         ),
@@ -264,10 +314,24 @@ abstract final class ViewerPlanner {
           : Rect.fromLTRB(0, 0, window.width - width, window.height);
     }
 
+    // Rule 2: a side inset a camera hole accounts for is kept only by what
+    // lies beside the hole (or the read-outs drawn next to it).
+    final holes = viewport.holes;
+    double side(Rect rect, double inset, double from, double to) {
+      if (inset <= 0) return 0;
+      final column = Rect.fromLTRB(from, 0, to, window.height);
+      if (!holes.any((hole) => hole.overlaps(column))) return inset;
+      final beside = Rect.fromLTRB(from, rect.top, to, rect.bottom);
+      return holes.any((hole) => hole.overlaps(beside)) ? inset : 0;
+    }
+
     EdgeInsets sides(Rect rect, EdgeInsets base) => EdgeInsets.fromLTRB(
-          rect.left <= 0 ? padding.left : 0,
+          rect.left <= 0 ? side(rect, padding.left, 0, padding.left) : 0,
           base.top,
-          rect.right >= window.width ? padding.right : 0,
+          rect.right >= window.width
+              ? side(rect, padding.right, window.width - padding.right,
+                  window.width)
+              : 0,
           base.bottom,
         );
 
@@ -305,6 +369,22 @@ abstract final class ViewerPlanner {
     }
 
     final picture = docked ? between : area;
+    Rect toolsIn(Rect area, double above) {
+      final row = Rect.fromLTRB(
+        area.left,
+        above - toolsMargin - request.toolsHeight,
+        area.right,
+        above - toolsMargin,
+      );
+      final inset = sides(row, EdgeInsets.zero);
+      return Rect.fromLTRB(
+        row.left + inset.left + toolsSide,
+        row.top,
+        row.right - inset.right - toolsSide,
+        row.bottom,
+      );
+    }
+
     return ViewerPlan(
       mode: docked ? ViewerMode.docked : ViewerMode.overlay,
       screen: screen,
@@ -313,8 +393,8 @@ abstract final class ViewerPlanner {
       picture: picture,
       topBar: topBar,
       bottomBar: bottomBar,
-      topBarPadding: sides(area, topPadding),
-      bottomBarPadding: sides(area, bottomPadding),
+      topBarPadding: sides(topBar, topPadding),
+      bottomBarPadding: sides(bottomBar, bottomPadding),
       panel: panel,
       panelPadding: panel == null
           ? EdgeInsets.zero
@@ -328,6 +408,7 @@ abstract final class ViewerPlanner {
             : EdgeInsets.only(top: topBar.height, bottom: bottomBar.height),
       ),
       fold: null,
+      tools: request.toolsHeight > 0 ? toolsIn(area, bottomBar.top) : null,
     );
   }
 

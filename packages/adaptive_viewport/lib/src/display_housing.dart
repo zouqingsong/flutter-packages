@@ -105,13 +105,33 @@ class DisplayHousing {
     return null;
   }
 
+  /// Where the system draws its status read-outs (clock, signal) next to a
+  /// punch hole in [data]'s window, for the screens where that is measured;
+  /// null on any other.
+  ///
+  /// Upright, the iPhone Duo's cover screen has no status bar: it reports an
+  /// 84 pt inset down its right-hand edge, and puts the clock and the signal
+  /// ring in that column under the hole. Only that stretch of the column is
+  /// taken; the rest of it is screen like any other, so the picture runs
+  /// under it and controls lower down reach the edge.
+  static Rect? statusReadOutsOf(MediaQueryData data) {
+    for (final hole in _punchHoles) {
+      final found = hole.readOuts(data.size);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
   static const _punchHoles = [
-    // iPhone Duo, cover screen: top-right in portrait.
+    // iPhone Duo, cover screen: top-right in portrait, the clock and signal
+    // ring under it to 158 pt from the top.
     _PunchHole(
       portrait: Size(466, 678),
       fromTop: 48,
       fromRight: 48,
       radius: 18.5,
+      readOutsColumn: 84,
+      readOutsBottom: 158,
     ),
   ];
 }
@@ -124,6 +144,8 @@ class _PunchHole {
     required this.fromTop,
     required this.fromRight,
     required this.radius,
+    this.readOutsColumn = 0,
+    this.readOutsBottom = 0,
   });
 
   /// The screen's size in portrait, which is how it is recognised.
@@ -133,6 +155,26 @@ class _PunchHole {
   final double fromTop;
   final double fromRight;
   final double radius;
+
+  /// Upright: the width of the column the status read-outs are drawn in under
+  /// the hole, and how far down from the top they reach. Zero where the
+  /// screen draws none there.
+  final double readOutsColumn;
+  final double readOutsBottom;
+
+  /// The read-outs under the hole in an upright window of [size], or null.
+  ///
+  /// Measured upright only: on its side the cover screen has not been seen
+  /// to draw them beside the hole.
+  Rect? readOuts(Size size) {
+    if (size != portrait || readOutsColumn <= 0) return null;
+    return Rect.fromLTRB(
+      size.width - readOutsColumn,
+      fromTop + radius,
+      size.width,
+      readOutsBottom,
+    );
+  }
 
   /// The hole in a window of [size], or null if this is not its screen.
   ///

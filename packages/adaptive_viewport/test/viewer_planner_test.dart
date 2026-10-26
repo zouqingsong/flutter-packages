@@ -120,7 +120,7 @@ void main() {
     expect(plan.panel!.left, greaterThanOrEqualTo(crease.right));
   });
 
-  test('half-folded, the transport is on the deck', () {
+  test('half-folded, every bar is on the deck', () {
     for (final name in [
       'Galaxy Z Fold 4 inner tabletop',
       'iPhone Duo inner half-folded',
@@ -128,8 +128,82 @@ void main() {
       final screen = profile(name);
       final plan = ViewerPlanner.plan(ViewerRequest(viewport: screen.viewport));
       expect(plan.mode, ViewerMode.tabletop, reason: name);
-      expect(plan.bottomBar!.top, plan.fold!.bottom, reason: name);
+      // The picture has the upright half to itself; the back button and
+      // the name come first from the fold, then the transport.
+      expect(plan.topBar!.top, plan.fold!.bottom, reason: name);
+      expect(plan.bottomBar!.top, greaterThanOrEqualTo(plan.topBar!.bottom),
+          reason: name);
+      expect(
+          plan.bottomBar!.bottom,
+          lessThanOrEqualTo(
+              screen.size.height - screen.viewport.padding.bottom),
+          reason: name);
+      expect(plan.topBar!.overlaps(plan.picture), isFalse, reason: name);
+      expect(plan.tools, isNull, reason: name);
     }
+  });
+
+  test('half-folded, an open palette is between the bars, as on live', () {
+    for (final name in [
+      'Galaxy Z Fold 4 inner tabletop',
+      'iPhone Duo inner half-folded',
+    ]) {
+      final screen = profile(name);
+      final plan = ViewerPlanner.plan(
+        ViewerRequest(viewport: screen.viewport, toolsHeight: 96),
+      );
+      final tools = plan.tools!;
+      expect(tools.height, 96, reason: name);
+      expect(tools.top, greaterThan(plan.topBar!.bottom), reason: name);
+      expect(plan.bottomBar!.top, greaterThan(tools.bottom), reason: name);
+      expect(tools.overlaps(plan.picture), isFalse, reason: name);
+      expect(
+          plan.bottomBar!.bottom,
+          lessThanOrEqualTo(
+              screen.size.height - screen.viewport.padding.bottom),
+          reason: name);
+    }
+  });
+
+  test('an open palette sits just above the bottom bar, inside the safe area',
+      () {
+    for (final screen in ScreenProfile.all) {
+      final plan = ViewerPlanner.plan(
+        ViewerRequest(viewport: screen.viewport, toolsHeight: 52),
+      );
+      if (plan.mode == ViewerMode.tabletop) continue;
+      final tools = plan.tools!;
+      final safe =
+          screen.viewport.padding.deflateRect(Offset.zero & screen.size);
+      expect(tools.bottom, lessThan(plan.bottomBar!.top), reason: screen.name);
+      // Inside the safe area, or past a side inset only where the hole that
+      // accounts for it is not.
+      final holes = screen.viewport.holes;
+      if (tools.left < safe.left || tools.right > safe.right) {
+        expect(holes, isNotEmpty, reason: screen.name);
+        for (final hole in holes) {
+          expect(apart(tools, hole), isTrue, reason: screen.name);
+        }
+      }
+    }
+  });
+
+  test('upright on the Duo cover screen, only the top bar keeps the column',
+      () {
+    // The 84 pt column down the right holds the hole and the clock at its
+    // top; below them it is screen like any other.
+    final screen = profile('iPhone Duo cover portrait');
+    final plan = ViewerPlanner.plan(
+      ViewerRequest(
+        viewport: screen.viewport,
+        mediaAspect: 16 / 9,
+        toolsHeight: 52,
+      ),
+    );
+    expect(plan.picture.width, screen.size.width);
+    expect(plan.topBarPadding.right, 84);
+    expect(plan.bottomBarPadding.right, 0);
+    expect(plan.tools!.right, screen.size.width - ViewerPlanner.toolsSide);
   });
 }
 
@@ -158,10 +232,21 @@ void check(ScreenProfile screen, ViewerPlan plan, {required bool panel}) {
     (plan.bottomBar!, plan.bottomBarPadding),
   ]) {
     expect(covers(window, bar), isTrue, reason: '$bar');
-    // What is in a bar keeps the safe area, so it meets no hole.
+    // What is in a bar keeps the safe area, so it meets no hole — or, past a
+    // side inset a hole accounts for, stays clear of the hole itself.
     final content = padding.deflateRect(bar);
     expect(content.isEmpty, isFalse, reason: '$bar');
-    expect(covers(safe, content), isTrue, reason: '$content in $safe');
+    expect(
+      covers(safe, content) ||
+          (viewport.holes.isNotEmpty &&
+              covers(
+                Rect.fromLTRB(
+                    window.left, safe.top, window.right, safe.bottom),
+                content,
+              )),
+      isTrue,
+      reason: '$content in $safe',
+    );
     for (final hole in viewport.holes) {
       expect(apart(content, hole), isTrue, reason: '$content on $hole');
     }
@@ -175,8 +260,10 @@ void check(ScreenProfile screen, ViewerPlan plan, {required bool panel}) {
 
   if (fold != null) {
     expect(plan.picture.bottom, lessThanOrEqualTo(fold.top));
-    expect(plan.bottomBar!.top, greaterThanOrEqualTo(fold.bottom));
-    expect(covers(plan.deck!, plan.bottomBar!), isTrue);
+    for (final bar in bars) {
+      expect(bar.top, greaterThanOrEqualTo(fold.bottom));
+      expect(covers(plan.deck!, bar), isTrue);
+    }
   }
 
   final shownPanel = plan.panel;

@@ -22,8 +22,9 @@ enum StageMode {
   /// float over its trailing edge in a rail.
   docked,
 
-  /// A foldable half-open like a laptop: the picture above the fold, the
-  /// controls on the deck below it, nothing on the crease.
+  /// A foldable half-open like a laptop: the picture alone above the fold,
+  /// and every control — zoom and drawing tools included — on the deck below
+  /// it, nothing on the crease.
   tabletop,
 }
 

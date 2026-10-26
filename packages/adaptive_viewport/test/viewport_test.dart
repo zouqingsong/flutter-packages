@@ -115,4 +115,123 @@ void main() {
       expect(padding, const EdgeInsets.only(right: 62, bottom: 21));
     });
   });
+
+  group('ScreenViewport.within', () {
+    const window = ScreenViewport(
+      size: Size(402, 874),
+      padding: EdgeInsets.only(top: 62, bottom: 34),
+      holes: [Rect.fromLTWH(150, 10, 100, 40)],
+      tabletop: TabletopFold(top: 437, bottom: 437),
+    );
+
+    test('a box below an app bar keeps only the insets reaching into it', () {
+      final local = window.within(const Rect.fromLTWH(0, 118, 402, 756));
+      expect(local.size, const Size(402, 756));
+      expect(local.padding, const EdgeInsets.only(bottom: 34));
+      // The island is above the box.
+      expect(local.holes, isEmpty);
+      expect(local.tabletop, const TabletopFold(top: 319, bottom: 319));
+    });
+
+    test('a box beside a sidebar loses the leading inset', () {
+      const landscape = ScreenViewport(
+        size: Size(1180, 820),
+        padding: EdgeInsets.only(left: 20, top: 24, right: 20, bottom: 20),
+        crease: Rect.fromLTWH(589, 0, 2, 820),
+      );
+      final local = landscape.within(const Rect.fromLTWH(300, 0, 880, 820));
+      expect(
+          local.padding, const EdgeInsets.only(top: 24, right: 20, bottom: 20));
+      expect(local.crease, const Rect.fromLTWH(289, 0, 2, 820));
+    });
+
+    test('a fold outside the box is no fold of its', () {
+      final local = window.within(const Rect.fromLTWH(0, 500, 402, 374));
+      expect(local.tabletop, isNull);
+    });
+
+    test('the whole window is itself', () {
+      final local = window.within(Offset.zero & window.size);
+      expect(local, window);
+    });
+  });
+
+  group('BoxViewportBuilder', () {
+    testWidgets('plans for the box below an app bar, not the window',
+        (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 62, bottom: 34);
+      addTearDown(tester.view.reset);
+      final seen = <ScreenViewport>[];
+      await tester.pumpWidget(
+        MediaQuery.fromView(
+          view: tester.view,
+          child: ViewportScope(
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Column(
+                children: [
+                  const SizedBox(height: 118),
+                  Expanded(
+                    child: Builder(
+                      builder: (context) => MediaQuery.removePadding(
+                        context: context,
+                        removeTop: true,
+                        child: BoxViewportBuilder(
+                          builder: (context, viewport) {
+                            seen.add(viewport);
+                            return const SizedBox.expand();
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final viewport = seen.last;
+      expect(viewport.size, const Size(402, 756));
+      expect(viewport.padding, const EdgeInsets.only(bottom: 34));
+    });
+
+    testWidgets('a box at the top of the window keeps the status bar',
+        (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 62, bottom: 34);
+      addTearDown(tester.view.reset);
+      late ScreenViewport viewport;
+      await tester.pumpWidget(
+        MediaQuery.fromView(
+          view: tester.view,
+          child: ViewportScope(
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: BoxViewportBuilder(
+                      builder: (context, v) {
+                        viewport = v;
+                        return const SizedBox.expand();
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(viewport.size, const Size(402, 774));
+      expect(viewport.padding, const EdgeInsets.only(top: 62));
+    });
+  });
 }

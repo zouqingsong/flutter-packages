@@ -69,10 +69,34 @@ void main() {
       // Portrait: top right.
       expect(
         DisplayHousing.punchHoleOf(
-          window(const Size(466, 678), const EdgeInsets.only(top: 60)),
+          window(
+            const Size(466, 678),
+            const EdgeInsets.only(right: 84, bottom: 34),
+          ),
         )!
             .center,
         const Offset(418, 48),
+      );
+    });
+
+    test('upright, the read-outs under it take the top of the column only',
+        () {
+      final readOuts = DisplayHousing.statusReadOutsOf(
+        window(
+          const Size(466, 678),
+          const EdgeInsets.only(right: 84, bottom: 34),
+        ),
+      )!;
+      expect(readOuts.left, 466 - 84.0);
+      expect(readOuts.right, 466);
+      expect(readOuts.top, 48 + 18.5);
+      expect(readOuts.bottom, 158);
+      // On its side nothing has been measured beside the hole.
+      expect(
+        DisplayHousing.statusReadOutsOf(
+          window(const Size(678, 466), const EdgeInsets.only(right: 84)),
+        ),
+        isNull,
       );
     });
 
