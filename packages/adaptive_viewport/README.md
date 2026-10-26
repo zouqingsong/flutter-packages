@@ -33,6 +33,18 @@ to the devices someone happened to test.
    buttons, the drawing or editing tools while one is in hand, the main
    controls (capture and record, or the transport), then the strip of recent
    items. A deck too short for all of it drops the strip first (rule 7).
+
+   **The deck is laid out, not shifted.** The deck has far more room than
+   the upright bar, so it does not get the upright bar moved down below the
+   fold. Whatever the upright screen had to collapse for want of room —
+   actions behind a ⋮ menu, a compact bar's icon-only form, a row that
+   scrolled — is spread out on the deck as its own controls: labelled
+   tiles in a centred grid first, icon-only tiles when the labels do not
+   fit, and a single ⋮ menu only when the deck is too short even for those.
+   The bar nearest the fold keeps what is always wanted (back, name, share,
+   the zoom buttons); palettes in hand wrap their tools onto rows rather than
+   scroll. Measure the room the deck has left, never the device. medview's
+   `DeckActionPanel` (the DICOM viewer) is the reference.
 5. **Full screen is the content alone**, edge to edge. Its controls come
    back on a tap (touch) or a pointer move (desktop), and go again
    (`ChromePolicy`).
@@ -143,6 +155,11 @@ upright (`docked`) or on its side (`overlay`), it hides the bars, and the
 next tap brings them back. Only the deck's bars when half-folded
 (`tabletop`), and the bars of a tool in use, stay put; bars put away
 upright come back once the phone is half-folded.
+
+On the deck the viewer lays its actions out for the room it has (rule 4):
+what the upright bar folded behind ⋮ (rotate, flip, window/level, invert,
+3D, info, …) becomes labelled tiles between the two bars, falling back to
+icons and then to one menu only as the deck gets shorter.
 
 An open tool palette has its own rect, `plan.tools`, when the app passes
 its height as `toolsHeight`: just above the bottom bar, 16 in from the safe
