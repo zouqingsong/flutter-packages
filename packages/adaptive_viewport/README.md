@@ -119,6 +119,56 @@ to the devices someone happened to test.
    bar or beside the sidebar it really has), open its palettes, and fail on
    any control not wholly inside the window.
 
+10. **Learning screens keep the task clear and the next action obvious.**
+    SmartChinese and ZiLele share the geometry rules, not a camera app's look.
+    Keep their familiar learning colours, legible Chinese characters/pinyin,
+    meaningful text labels and age-appropriate feedback. Decorations, mascots,
+    rewards and progress dots yield space before study content or actions.
+    Never let a floating mascot or mode switch cover an answer, drawing area,
+    record button, navigation or submit button.
+
+    * **Tablets are workspaces, not stretched phones.** Decide from the
+      content box *after* navigation and safe areas. Show input and feedback,
+      or a lesson and writing pad, together only if each pane has usable room.
+      Otherwise use one pane with an explicit switch. iPad Split View, Android
+      multi-window and an unfolded phone do not automatically justify two panes.
+      Constrain long forms and reading lines; allow rosters, lessons and
+      feedback to scroll, while keeping navigation and task actions separate.
+    * **Half-fold follows the task.** A reference card, oral prompt, slide or
+      game board belongs above the fold; recall/next/previous, recording,
+      evaluation, presentation transport and explicit game controls belong
+      below it. Handwriting is an input task: keep the example above and the
+      actual writing surface on the deck, with clear/guide/animate nearby.
+      Tappable learning content (cards, answers, game pieces) may still be
+      manipulated directly; do not replace it with an inert screenshot or
+      change gameplay just to split the screen. Expand secondary tools when
+      room permits; do not just transplant the compact toolbar.
+    * **Teacher and parent tools remain deliberate.** Keep slide previous/next,
+      activity controls, record/stop, evaluate/submit and leave/end actions
+      identifiable, with existing role restrictions and confirmations intact.
+      A slide mirror does not replace its transport controls. A floating
+      presentation or an ongoing student recording must not restart on rotation,
+      resizing or a posture change.
+    * **Touch targets do not shrink to make a layout pass.** Aim for at least
+      48 logical pixels for mobile/tablet actions. Use measured wrapping and
+      overflow for secondary tools, not tiny icons, scrolling action strips,
+      or a `FittedBox` that shrinks the whole control panel. Bigger text is
+      measured too; scores and headings can wrap or ellipsize, never push a
+      primary action off screen.
+    * **Test tasks, not just breakpoints.** Pump the actual page inside its
+      shell; exercise a card flip, input/feedback switch, game control or
+      presentation command. Check visible and overflow actions, open tools,
+      touch-target bounds, and fold exclusion. Cover narrow phones and cover
+      screens upright/on their side, open and half-open foldables, iPad/Android
+      tablets in both orientations, split-screen, and larger text. Distinguish
+      widget/profile coverage from native-device and live-service verification.
+
+    **Coordinate check:** `BoxViewportBuilder` provides a local fold for planning
+    inside that box. `TabletopLayout.fold` takes a **window-coordinate** fold and
+    measures its own origin. Use `ScreenViewport.windowOf(context).tabletop`
+    when feeding `TabletopLayout`; passing the box-local fold subtracts safe
+    areas/app bars twice and can put the first deck control above the crease.
+
 ## The screen class
 
 `ScreenClass.of(viewport)`:
