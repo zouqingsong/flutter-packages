@@ -335,3 +335,114 @@ class _BoxViewportBuilderState extends State<BoxViewportBuilder> {
     );
   }
 }
+
+/// A [SafeArea] for one bar, control or target of a scene, never for the
+/// scene itself (README rule 2).
+///
+/// It pads [child] by what of the safe area actually reaches into its own
+/// box. A side inset that a camera hole accounts for — the iPhone Duo cover
+/// screen's 84 pt column — is treated as the hole it is: [child] moves clear
+/// of the hole (and the read-outs beside it) only where its box overlaps
+/// them, by the shortest way out, instead of standing the whole column in
+/// from that edge. Keeping off a book fold's crease is the layout's job
+/// (rule 3), not this widget's.
+class LocalSafeArea extends StatelessWidget {
+  const LocalSafeArea({
+    super.key,
+    required this.child,
+    this.left = true,
+    this.top = true,
+    this.right = true,
+    this.bottom = true,
+    this.minimum = EdgeInsets.zero,
+    this.gap = 4,
+  });
+
+  final Widget child;
+  final bool left;
+  final bool top;
+  final bool right;
+  final bool bottom;
+
+  /// The least padding on each side, as for [SafeArea.minimum].
+  final EdgeInsets minimum;
+
+  /// How far [child] keeps from a hole it steps around.
+  final double gap;
+
+  /// The padding a box seen as [box] needs in a window seen as [window]:
+  /// the safe area that reaches into it, less any side inset that only a
+  /// hole accounts for, plus a step around each hole that the box overlaps.
+  static EdgeInsets insetsOf(ScreenViewport box, ScreenViewport window,
+      {double gap = 4}) {
+    final size = window.size;
+    final safe = window.padding;
+    bool explained(Rect strip) =>
+        !strip.isEmpty && window.holes.any((hole) => hole.overlaps(strip));
+    var padding = box.padding;
+    if (explained(Rect.fromLTWH(0, 0, safe.left, size.height))) {
+      padding = padding.copyWith(left: 0);
+    }
+    if (explained(
+        Rect.fromLTWH(size.width - safe.right, 0, safe.right, size.height))) {
+      padding = padding.copyWith(right: 0);
+    }
+    final width = box.size.width;
+    final height = box.size.height;
+    if (width <= 0 || height <= 0) return padding;
+    for (final hole in box.holes) {
+      final steps = [
+        hole.right + gap - padding.left,
+        width - hole.left + gap - padding.right,
+        hole.bottom + gap - padding.top,
+        height - hole.top + gap - padding.bottom,
+      ];
+      // The shortest way out, as a share of the room it takes away: a bar is
+      // not squashed to step over a hole beside it, and a full-width box is
+      // not halved to step round a notch above it.
+      final costs = [
+        steps[0] / width,
+        steps[1] / width,
+        steps[2] / height,
+        steps[3] / height,
+      ];
+      var side = 0;
+      for (var i = 1; i < costs.length; i++) {
+        if (costs[i] < costs[side]) side = i;
+      }
+      if (steps[side] <= 0) continue;
+      padding = switch (side) {
+        0 => padding.copyWith(left: hole.right + gap),
+        1 => padding.copyWith(right: width - hole.left + gap),
+        2 => padding.copyWith(top: hole.bottom + gap),
+        _ => padding.copyWith(bottom: height - hole.top + gap),
+      };
+    }
+    return padding;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BoxViewportBuilder(builder: (context, viewport) {
+      final insets = insetsOf(viewport, ScreenViewport.windowOf(context),
+          gap: gap);
+      final padding = EdgeInsets.fromLTRB(
+        math.max(left ? insets.left : 0, minimum.left),
+        math.max(top ? insets.top : 0, minimum.top),
+        math.max(right ? insets.right : 0, minimum.right),
+        math.max(bottom ? insets.bottom : 0, minimum.bottom),
+      );
+      return Padding(
+        padding: padding,
+        child: MediaQuery.removePadding(
+          context: context,
+          removeLeft: left,
+          removeTop: top,
+          removeRight: right,
+          removeBottom: bottom,
+          child: child,
+        ),
+      );
+    });
+  }
+}
