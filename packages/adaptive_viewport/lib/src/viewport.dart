@@ -346,7 +346,7 @@ class _BoxViewportBuilderState extends State<BoxViewportBuilder> {
 /// them, by the shortest way out, instead of standing the whole column in
 /// from that edge. Keeping off a book fold's crease is the layout's job
 /// (rule 3), not this widget's.
-class LocalSafeArea extends StatelessWidget {
+class LocalSafeArea extends StatefulWidget {
   const LocalSafeArea({
     super.key,
     required this.child,
@@ -373,8 +373,13 @@ class LocalSafeArea extends StatelessWidget {
   /// The padding a box seen as [box] needs in a window seen as [window]:
   /// the safe area that reaches into it, less any side inset that only a
   /// hole accounts for, plus a step around each hole that the box overlaps.
+  /// A side turned off is neither padded nor stepped to.
   static EdgeInsets insetsOf(ScreenViewport box, ScreenViewport window,
-      {double gap = 4}) {
+      {double gap = 4,
+      bool left = true,
+      bool top = true,
+      bool right = true,
+      bool bottom = true}) {
     final size = window.size;
     final safe = window.padding;
     bool explained(Rect strip) =>
@@ -387,9 +392,16 @@ class LocalSafeArea extends StatelessWidget {
         Rect.fromLTWH(size.width - safe.right, 0, safe.right, size.height))) {
       padding = padding.copyWith(right: 0);
     }
+    padding = EdgeInsets.fromLTRB(
+      left ? padding.left : 0,
+      top ? padding.top : 0,
+      right ? padding.right : 0,
+      bottom ? padding.bottom : 0,
+    );
     final width = box.size.width;
     final height = box.size.height;
-    if (width <= 0 || height <= 0) return padding;
+    final allowed = [left, right, top, bottom];
+    if (width <= 0 || height <= 0 || !allowed.contains(true)) return padding;
     for (final hole in box.holes) {
       final steps = [
         hole.right + gap - padding.left,
@@ -406,9 +418,9 @@ class LocalSafeArea extends StatelessWidget {
         steps[2] / height,
         steps[3] / height,
       ];
-      var side = 0;
-      for (var i = 1; i < costs.length; i++) {
-        if (costs[i] < costs[side]) side = i;
+      var side = allowed.indexOf(true);
+      for (var i = side + 1; i < costs.length; i++) {
+        if (allowed[i] && costs[i] < costs[side]) side = i;
       }
       if (steps[side] <= 0) continue;
       padding = switch (side) {
@@ -422,27 +434,63 @@ class LocalSafeArea extends StatelessWidget {
   }
 
   @override
+  State<LocalSafeArea> createState() => _LocalSafeAreaState();
+}
+
+class _LocalSafeAreaState extends State<LocalSafeArea> {
+  /// This widget's own box in the window, padding included, as last laid
+  /// out. Measured rather than taken from the constraints, so a rail in a
+  /// `Row` (unbounded along it) is placed where it really is.
+  Rect? _box;
+
+  void _measure() {
+    if (!mounted) return;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return;
+    final rect = _BoxViewportBuilderState._layoutOrigin(box) & box.size;
+    final old = _box;
+    if (old == null ||
+        (rect.left - old.left).abs() > 0.5 ||
+        (rect.top - old.top).abs() > 0.5 ||
+        (rect.width - old.width).abs() > 0.5 ||
+        (rect.height - old.height).abs() > 0.5) {
+      setState(() => _box = rect);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BoxViewportBuilder(builder: (context, viewport) {
-      final insets = insetsOf(viewport, ScreenViewport.windowOf(context),
-          gap: gap);
-      final padding = EdgeInsets.fromLTRB(
-        math.max(left ? insets.left : 0, minimum.left),
-        math.max(top ? insets.top : 0, minimum.top),
-        math.max(right ? insets.right : 0, minimum.right),
-        math.max(bottom ? insets.bottom : 0, minimum.bottom),
-      );
-      return Padding(
-        padding: padding,
-        child: MediaQuery.removePadding(
-          context: context,
-          removeLeft: left,
-          removeTop: top,
-          removeRight: right,
-          removeBottom: bottom,
-          child: child,
-        ),
-      );
-    });
+    final window = ScreenViewport.windowOf(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    final box = _box;
+    // Until it has been laid out, where it is is unknown: pad by nothing but
+    // [LocalSafeArea.minimum] for that one frame. Guessing more for every
+    // bar at once would overflow the page they share.
+    final insets = box == null
+        ? EdgeInsets.zero
+        : LocalSafeArea.insetsOf(window.within(box), window,
+            gap: widget.gap,
+            left: widget.left,
+            top: widget.top,
+            right: widget.right,
+            bottom: widget.bottom);
+    final minimum = widget.minimum;
+    final padding = EdgeInsets.fromLTRB(
+      math.max(insets.left, minimum.left),
+      math.max(insets.top, minimum.top),
+      math.max(insets.right, minimum.right),
+      math.max(insets.bottom, minimum.bottom),
+    );
+    return Padding(
+      padding: padding,
+      child: MediaQuery.removePadding(
+        context: context,
+        removeLeft: widget.left,
+        removeTop: widget.top,
+        removeRight: widget.right,
+        removeBottom: widget.bottom,
+        child: widget.child,
+      ),
+    );
   }
 }

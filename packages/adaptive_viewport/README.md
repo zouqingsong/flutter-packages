@@ -68,7 +68,8 @@ to the devices someone happened to test.
    FlexionCam Control live deck is the CJ-Optik handheld remote, key for key
    and in its order: capture and record; AWB and AE-L; the white-balance
    palette (each press moves to the next preset) and the gallery; ‹ ▶ › to
-   step through and open the captures; then the maker's mark. Stacked like
+   step through and open the captures; then the maker's mark, at the foot of
+   the deck with the keys centred above it. Stacked like
    the handset on a tall deck, its groups left to right on a wide one; the
    mark is dropped first, and a deck shorter still scales the remote down
    rather than clipping or scrolling it (rules 7 and 9). The remote's gallery
