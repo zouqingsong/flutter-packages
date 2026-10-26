@@ -58,11 +58,22 @@ to the devices someone happened to test.
    scroll. Measure the room the deck has left, never the device.
    `package:adaptive_viewport/deck_actions.dart` provides a themed
    `DeckActionPanel` for this: camivex uses it for live and viewer actions;
-   MicVision / FlexionCam Control use it for camera presets and viewer actions.
+   MicVision / FlexionCam Control use it for viewer actions.
    It keeps 48 pt icon targets, measures larger text before choosing labels,
    narrows labelled tiles to fit more columns before dropping their labels,
    and takes its colours from the app rather than imposing another brand.
    medview's DICOM viewer has the same progression.
+
+   A product with a physical remote may lay the remote out instead. The
+   FlexionCam Control live deck is the CJ-Optik handheld remote, key for key
+   and in its order: capture and record; AWB and AE-L; the white-balance
+   palette (each press moves to the next preset) and the gallery; ‹ ▶ › to
+   step through and open the captures; then the maker's mark. Stacked like
+   the handset on a tall deck, its groups left to right on a wide one; the
+   mark is dropped first, and a deck shorter still scales the remote down
+   rather than clipping or scrolling it (rules 7 and 9). The remote's gallery
+   key replaces the sheet's handle; with the gallery open, the remote keeps
+   one row — capture, record, gallery — above it.
 
    Palettes use the spare height too: camivex reveals individual drawing
    shapes, measurements, colours and processing filters when their wrapped
