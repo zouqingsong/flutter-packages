@@ -73,7 +73,10 @@ to the devices someone happened to test.
    the fold even when the picture's chrome was hidden upright.
 5. **Full screen is the content alone**, edge to edge. Its controls come
    back on a tap (touch) or a pointer move (desktop), and go again
-   (`ChromePolicy`).
+   (`ChromePolicy`). Every overlay goes, including a collapsed panel's small
+   handle or arrow, such as the embedded-gallery button; a closed panel's
+   handle is still chrome. Half-folded, the deck keeps its gallery button below
+   the fold (rule 4); only the upright picture is cleared.
 6. **Classes, not devices.** Layout comes from `ScreenClass`: the width
    class, whether the height is short, the input and the posture. The one
    device table is where iOS reports nothing: the iPhone Duo cover screen's
