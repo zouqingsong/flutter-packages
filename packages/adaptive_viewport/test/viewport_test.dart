@@ -291,4 +291,118 @@ void main() {
       expect(viewport.padding, const EdgeInsets.only(top: 62));
     });
   });
+
+  group('LocalSafeArea.insetsOf', () {
+    final hole = Rect.fromCircle(center: const Offset(418, 48), radius: 18.5);
+    const readOuts = Rect.fromLTRB(382, 66.5, 466, 158);
+    final portrait = ScreenViewport(
+      size: const Size(466, 678),
+      padding: const EdgeInsets.only(right: 84, bottom: 34),
+      holes: [hole, readOuts],
+    );
+    final landscapeRight = ScreenViewport(
+      size: const Size(678, 466),
+      padding: const EdgeInsets.only(left: 84, bottom: 34),
+      holes: [Rect.fromCircle(center: const Offset(48, 48), radius: 18.5)],
+    );
+
+    EdgeInsets insets(ScreenViewport window, Rect box,
+            {bool left = true, bool top = true}) =>
+        LocalSafeArea.insetsOf(window.within(box), window,
+            left: left, top: top);
+
+    test('a top bar steps sideways past the hole, not down', () {
+      expect(insets(landscapeRight, const Rect.fromLTWH(0, 0, 678, 56)),
+          const EdgeInsets.only(left: 70.5));
+    });
+
+    test('a box away from the hole fills the camera column', () {
+      expect(insets(landscapeRight, const Rect.fromLTWH(0, 120, 300, 200)),
+          EdgeInsets.zero);
+      expect(insets(portrait, const Rect.fromLTWH(200, 300, 266, 200)),
+          EdgeInsets.zero);
+    });
+
+    test('the home indicator inset is kept', () {
+      expect(insets(landscapeRight, const Rect.fromLTWH(0, 300, 678, 166)),
+          const EdgeInsets.only(bottom: 34));
+    });
+
+    test('a side turned off is not stepped to', () {
+      final bar = insets(landscapeRight, const Rect.fromLTWH(0, 0, 678, 56),
+          left: false);
+      expect(bar.left, 0);
+      expect(bar.top, 0);
+    });
+
+    test('content below a header steps down past the read-outs', () {
+      expect(insets(portrait, const Rect.fromLTWH(0, 56, 466, 622)),
+          const EdgeInsets.only(top: 106, bottom: 34));
+    });
+
+    test('an inset no hole explains is kept, as SafeArea would', () {
+      const iphone = ScreenViewport(
+        size: Size(874, 402),
+        padding: EdgeInsets.only(left: 62, right: 62, bottom: 21),
+      );
+      expect(insets(iphone, Offset.zero & iphone.size),
+          const EdgeInsets.only(left: 62, right: 62, bottom: 21));
+    });
+  });
+
+  group('LocalSafeArea', () {
+    testWidgets('settles around the Duo cover hole without overflowing',
+        (tester) async {
+      tester.view.physicalSize = const Size(466, 678);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const header = ValueKey('header');
+      const body = ValueKey('body');
+      await tester.pumpWidget(MediaQuery(
+        data: const MediaQueryData(
+          size: Size(466, 678),
+          padding: EdgeInsets.only(right: 84, bottom: 34),
+          viewPadding: EdgeInsets.only(right: 84, bottom: 34),
+        ),
+        child: ViewportScope(
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Column(children: [
+              const LocalSafeArea(
+                bottom: false,
+                child:
+                    SizedBox(key: header, width: double.infinity, height: 56),
+              ),
+              Expanded(
+                child: LocalSafeArea(
+                  child: Builder(
+                    builder: (context) {
+                      // Insets it applied are taken out of MediaQuery.
+                      expect(MediaQuery.paddingOf(context), EdgeInsets.zero);
+                      return const SizedBox.expand(key: body);
+                    },
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ));
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump();
+      }
+      expect(tester.takeException(), isNull);
+      final bar = tester.getRect(find.byKey(header));
+      final content = tester.getRect(find.byKey(body));
+      // The bar keeps its full height and gives up only the hole's width.
+      expect(bar.left, 0);
+      expect(bar.top, 0);
+      expect(bar.right, closeTo(466 - 70.5, 0.01));
+      // The page below runs edge to edge and starts under the read-outs.
+      expect(content.left, 0);
+      expect(content.right, 466);
+      expect(content.top, closeTo(162, 0.01));
+      expect(content.bottom, 678 - 34);
+    });
+  });
 }

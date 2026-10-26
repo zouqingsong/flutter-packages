@@ -33,6 +33,41 @@ to the devices someone happened to test.
    camera/clock/signal obstacles. Matching the scene's background colour in
    a reserved stripe is not a full-bleed fix.
 
+   **Every route, not just games.** Home, study, card, writing, reading and
+   hub pages are scenes too. A route-level `SafeArea` (often
+   `Scaffold(body: SafeArea(...))`) keeps the whole 84 pt camera column and
+   the 34 pt home-indicator band for the full height of the page. The
+   scaffold colour then shows there as a stripe, and the content it squeezes
+   can overflow (the game hub's three-tile rows did). Make the body
+   `SizedBox.expand(child: ...)` and wrap each bar, rail, floating target
+   and fixed-size panel in its own `LocalSafeArea`:
+
+   * `LocalSafeArea` measures its own box in the window. It keeps the
+     system insets that box really touches, drops a side inset that only a
+     camera hole accounts for, and steps the child around any hole or
+     read-out it overlaps, on the side that costs the least room. A top bar
+     beside the Duo hole gives up about 70 pt of width, not its height;
+     content below a header steps down past the read-outs. Turning a side
+     off (`top: false` under a header, `bottom: false` for a header)
+     neither pads nor steps to that side.
+   * It settles over a few frames, because siblings shift as their padding
+     changes. Before its first measurement it pads only by `minimum`; more
+     than that would overflow the page all the bars share.
+   * Wrap the parts, not the page. Wrapping a whole map or board pushes it
+     below the read-outs and wastes the column again. Decorative full-bleed
+     art may run under the hole; a target must not rest on it.
+   * Scrolling lists run the full width and add the bottom inset to their
+     own end padding. They do not inherit it from a `SafeArea`.
+   * A page whose background is one flat colour (a privacy page, say) shows
+     no stripe under a `SafeArea`, but it still loses the column's room.
+     Prefer `LocalSafeArea` there too.
+   * Drawers and side panels too. A `Scaffold` hands its drawer the whole
+     window's insets. A `SafeArea` around a 200 pt drawer therefore also
+     pads for the Duo's 84 pt camera column on the far side of the screen,
+     which the drawer never reaches. MicVision's version row overflowed
+     that way. Use `LocalSafeArea` per part, and let a long text line such
+     as a version string scale down or ellipsize instead of overflowing.
+
    Size route contents from their parent constraints (`SizedBox.expand`),
    not a cached window size captured before navigation or rotation.
 3. **Nothing on a hole or a crease.** A control that would land on a camera
@@ -151,7 +186,10 @@ to the devices someone happened to test.
    Assert camera/read-out exclusion separately for HUD and gameplay targets;
    "no overflow" alone does not detect an empty safe-area stripe. Include
    embedded boxes and posture/size changes so no stale window dimensions
-   survive a transition.
+   survive a transition. Pump the real route until `LocalSafeArea` has
+   settled (several frames), then probe its pixels. If an edge pixel is the
+   bare scaffold colour while the pixel just inside it is not, that edge is
+   a stripe.
 
 10. **Learning screens keep the task clear and the next action obvious.**
     SmartChinese and ZiLele share the geometry rules, not a camera app's look.
