@@ -43,8 +43,22 @@ to the devices someone happened to test.
    fit, and a single ⋮ menu only when the deck is too short even for those.
    The bar nearest the fold keeps what is always wanted (back, name, share,
    the zoom buttons); palettes in hand wrap their tools onto rows rather than
-   scroll. Measure the room the deck has left, never the device. medview's
-   `DeckActionPanel` (the DICOM viewer) is the reference.
+   scroll. Measure the room the deck has left, never the device.
+   `package:adaptive_viewport/deck_actions.dart` provides a themed
+   `DeckActionPanel` for this: camivex uses it for live and viewer actions;
+   MicVision / FlexionCam Control use it for camera presets and viewer actions.
+   It keeps 48 pt icon targets, measures larger text before choosing labels,
+   narrows labelled tiles to fit more columns before dropping their labels,
+   and takes its colours from the app rather than imposing another brand.
+   medview's DICOM viewer has the same progression.
+
+   Palettes use the spare height too: camivex reveals individual drawing
+   shapes, measurements, colours and processing filters when their wrapped
+   rows fit above the main controls. Only a short deck keeps the compact
+   groups. A video's play/pause and scrubber are on the deck, never left over
+   the upright picture; only the current clip drives them. Navigation,
+   recording status and the embedded-gallery button stay available below
+   the fold even when the picture's chrome was hidden upright.
 5. **Full screen is the content alone**, edge to edge. Its controls come
    back on a tap (touch) or a pointer move (desktop), and go again
    (`ChromePolicy`).
