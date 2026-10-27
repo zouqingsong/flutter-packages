@@ -15,6 +15,8 @@
 ///   as few rows as fit, never scrolled.
 /// * [TabletopLayout] — picture above the fold, deck below, without
 ///   rebuilding the picture.
+/// * [ShellDestination] — marks a page the shell's navigation shows, so it
+///   offers no back button that would pop the shell.
 library;
 
 export 'src/controls_plan.dart';
@@ -23,6 +25,7 @@ export 'src/fold_posture.dart';
 export 'src/gallery_plan.dart';
 export 'src/palette_plan.dart';
 export 'src/screen_class.dart';
+export 'src/shell_destination.dart';
 export 'src/stage_plan.dart';
 export 'src/viewer_plan.dart';
 export 'src/viewport.dart';

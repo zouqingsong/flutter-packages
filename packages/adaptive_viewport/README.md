@@ -68,6 +68,34 @@ to the devices someone happened to test.
      that way. Use `LocalSafeArea` per part, and let a long text line such
      as a version string scale down or ellipsize instead of overflowing.
 
+   **Every edge, and the chrome too.** Not only the cover's camera column:
+   the inner screen's status bar (top) and home indicator (bottom), and both
+   landscapes, are edges as well. What a page paints — a header, an app bar,
+   a bottom panel, an overlay's dimmer, each half of a half-folded deck —
+   reaches every screen edge it borders; only its contents keep clear:
+
+   * Paint outside, inset inside. A header paints to the top edge with its
+     row in `LocalSafeArea(bottom: false)`; the body below it is in
+     `LocalSafeArea(top: false)`; a bottom panel's decoration reaches the
+     bottom edge with `LocalSafeArea(top: false)` inside it. A
+     `SafeArea` around a coloured header, app bar or panel — at the route
+     or inside a control — leaves the scaffold showing above or below it.
+     (ZiLele's Settings, toolbox, search range, fill-in-the-blank, My World
+     and writing pad all left a band on the Duo inner screen that way.)
+   * A modal overlay's dimmer covers the whole screen; only its panel sits
+     in a `LocalSafeArea`.
+   * The halves of a half-folded deck are painted in the deck's own colour
+     to the top and bottom edges, not left on the stage colour.
+   * Paint a gradient once, on the outer box; a second copy inside an
+     inset box shows a seam.
+   * A `SafeArea` that only pads content inside an already full-bleed
+     background is fine; one that sets where a painted surface ends is not.
+   * A form that scrolls runs under the home indicator and pads its own end
+     by the bottom inset, instead of stopping short of it.
+   * The full-bleed bar is narrower beside a hole, so its text yields: a
+     title is `Expanded` and scales down or ellipsizes, stats wrap, and the
+     timer, score and actions keep their room.
+
    Size route contents from their parent constraints (`SizedBox.expand`),
    not a cached window size captured before navigation or rotation.
 3. **Nothing on a hole or a crease.** A control that would land on a camera
@@ -176,6 +204,45 @@ to the devices someone happened to test.
      about) brings its own bar with a back button, and the shell drops its
      own bar while it is up: two headers took the picture's room and,
      half-folded, put a control above the fold.
+   * **A way back.** A page reached by a push — settings, about, a tool —
+     shows a back button whenever no sidebar or shell navigation is on
+     screen with it. Decide from how the page was shown (embedded in the
+     shell, or pushed: `ModalRoute.impliesAppBarDismissal`), never from the
+     screen size, and never from GoRouter's `canPop` alone, which misses
+     `Navigator` pushes. ZiLele's Settings hid its back button at 600 pt and
+     wider, so on the Duo's inner screen and on tablets, where it is pushed
+     with no sidebar, it was a dead end. The back button is wholly on screen
+     and clear of the holes like any other control.
+   * **No way back from a destination.** A page picked from a sidebar,
+     rail or bottom bar is a destination, not a push: the bar is the way to
+     the other pages, and the page has no back button. Only a page pushed on
+     its own route, or a popup (dialog, sheet, full-screen viewer), gets
+     one. Wrap whatever the shell shows in `ShellDestination` and decide with
+     `ShellDestination.needsBackButton(context)`; `Navigator.canPop` and
+     `impliesAppBarDismissal` are true there whenever the shell itself was
+     pushed (after a login, say). ZiLele's My World always showed a back
+     arrow; in the unfolded Duo's shell it popped the shell and left a blank
+     screen.
+     The same goes for controls a destination embeds: a card deck or writing
+     pad that draws its own back arrow asks the same question (ZiLele's
+     Daily Challenge embeds the flip-card deck, whose arrow also popped the
+     shell).
+   * **Navigation follows the window, not the device.** Touch windows —
+     phones, the Duo cover and inner screens, Fold/Flip, upright tablets and
+     iPads — use a compact bottom bar: full bleed to the bottom, left and
+     right edges, with `LocalSafeArea` inside it for the home indicator and
+     camera hole, and the page's controls on the bar's right end (or behind
+     "More" when they do not fit). A window at least 1000 × 480 (iPad and
+     tablet landscape, desktop) may also offer a sidebar, which the user
+     shows or hides with a `view_sidebar` button on the bar or sidebar and
+     which is remembered — hidden by default on touch, shown by default with
+     a mouse. Never a permanent sidebar on touch, and never a hamburger rail
+     that slides out on hover and auto-hides: it covers the page, hides
+     where you are, and a tablet has no hover. A half-fold keeps the bar on
+     the lower deck with the rest of the tools. This matches Material 3
+     (bar for compact/medium, rail or sidebar for expanded), iPadOS 18 (a
+     tab bar the user can turn into a sidebar) and camivex's toggled
+     sidebar (same 1000 pt breakpoint).
 
    Page tests put each page where the app puts it (in the shell, below the
    bar or beside the sidebar it really has), open its palettes, and fail on
@@ -190,6 +257,11 @@ to the devices someone happened to test.
    settled (several frames), then probe its pixels. If an edge pixel is the
    bare scaffold colour while the pixel just inside it is not, that edge is
    a stripe.
+   Probe all four edges on every Duo profile — cover upright and on both
+   sides, inner upright, on its side and half-folded — and every route a
+   user can reach, not only the main pages. A page that picks one of several
+   layouts at random (a daily task) is tested once per layout. Push each
+   page as the app does and tap its back button to prove the way out.
 
 10. **Learning screens keep the task clear and the next action obvious.**
     SmartChinese and ZiLele share the geometry rules, not a camera app's look.
