@@ -100,6 +100,40 @@ void main() {
       );
     });
 
+    test('the Duo inner screen on its side has read-outs at the column top',
+        () {
+      final right = DisplayHousing.statusReadOutsOf(
+        window(
+          const Size(951, 669),
+          const EdgeInsets.only(right: 82, bottom: 34),
+        ),
+      )!;
+      expect(right, const Rect.fromLTRB(951 - 82.0, 24, 951, 100));
+      final left = DisplayHousing.statusReadOutsOf(
+        window(
+          const Size(951, 669),
+          const EdgeInsets.only(left: 82, bottom: 34),
+        ),
+      )!;
+      expect(left, const Rect.fromLTRB(0, 24, 82, 100));
+      // There is no hole, and a mirrored inset says nothing of the side.
+      expect(
+        DisplayHousing.punchHoleOf(
+          window(const Size(951, 669), const EdgeInsets.only(right: 82)),
+        ),
+        isNull,
+      );
+      expect(
+        DisplayHousing.statusReadOutsOf(
+          window(
+            const Size(951, 669),
+            const EdgeInsets.only(left: 82, right: 82),
+          ),
+        ),
+        isNull,
+      );
+    });
+
     test('is not guessed at on any other screen', () {
       // An iPhone 17 Pro in landscape: the Dynamic Island, not a hole.
       expect(

@@ -114,13 +114,28 @@ class DisplayHousing {
   /// ring in that column under the hole. Only that stretch of the column is
   /// taken; the rest of it is screen like any other, so the picture runs
   /// under it and controls lower down reach the edge.
+  ///
+  /// On its side, the iPhone Duo's inner screen has no status bar either: it
+  /// reports an 82 pt inset down one long edge and draws the clock and the
+  /// signal ring at the top of that column, with no hole. Below them the
+  /// column is empty screen.
   static Rect? statusReadOutsOf(MediaQueryData data) {
     for (final hole in _punchHoles) {
       final found = hole.readOuts(data.size);
       if (found != null) return found;
     }
+    for (final column in _statusColumns) {
+      final found = column.readOuts(data.size, data.viewPadding);
+      if (found != null) return found;
+    }
     return null;
   }
+
+  static const _statusColumns = [
+    // iPhone Duo, inner screen on its side: the clock and the signal ring
+    // from 28 to 96 pt down the column (measured).
+    _StatusColumn(landscape: Size(951, 669), top: 24, bottom: 100),
+  ];
 
   static const _punchHoles = [
     // iPhone Duo, cover screen: top-right in portrait, the clock and signal
@@ -198,5 +213,36 @@ class _PunchHole {
       return null;
     }
     return Rect.fromCircle(center: centre, radius: radius);
+  }
+}
+
+/// A side inset with no hole in it, only the status read-outs at its top:
+/// what a screen without a status bar reports on its side.
+class _StatusColumn {
+  const _StatusColumn({
+    required this.landscape,
+    required this.top,
+    required this.bottom,
+  });
+
+  /// The screen's size on its side, which is how it is recognised.
+  final Size landscape;
+
+  /// How far down the column the read-outs start and end.
+  final double top;
+  final double bottom;
+
+  /// The read-outs in a window of [size] inset by [viewPadding], or null if
+  /// this is not the screen, or the inset does not say which side they are
+  /// on.
+  Rect? readOuts(Size size, EdgeInsets viewPadding) {
+    if (size != landscape) return null;
+    final left = viewPadding.left;
+    final right = viewPadding.right;
+    if (right > left) {
+      return Rect.fromLTRB(size.width - right, top, size.width, bottom);
+    }
+    if (left > right) return Rect.fromLTRB(0, top, left, bottom);
+    return null;
   }
 }

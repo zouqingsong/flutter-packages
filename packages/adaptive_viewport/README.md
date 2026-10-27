@@ -23,6 +23,13 @@ to the devices someone happened to test.
    the column, edge to edge, with no stripe beside it. Controls are
    aligned to the screen's edge. Only what lies beside the hole or the
    read-outs (the top bar) keeps the inset.
+   The Duo's inner screen on its side is the same without the hole: an
+   82 pt column down one long edge with the clock and the signal ring at
+   its top (24–100 pt) and plain screen below. A rail in that column steps
+   down past the read-outs and runs to the edge; it does not stand 82 pt
+   in from it. Give such a rail equal margins on both sides, so its
+   buttons sit centred between the content and the screen edge instead of
+   against the content with an empty column beside them.
 
    **The scene is not a safe-area panel.** Main pages and game routes paint
    their entire allocated box, including camera-side columns and the area
@@ -155,8 +162,11 @@ to the devices someone happened to test.
 6. **Classes, not devices.** Layout comes from `ScreenClass`: the width
    class, whether the height is short, the input and the posture. The one
    device table is where iOS reports nothing: the iPhone Duo cover screen's
-   punch hole and the status read-outs beside it, in
+   punch hole and the status read-outs beside it, and the inner screen's
+   read-outs at the top of its side column, in
    `DisplayHousing.punchHoleOf` and `DisplayHousing.statusReadOutsOf`.
+   The test profiles carry the measured insets (inner screen upright: top
+   82, bottom 34; on its side: right 82, bottom 34).
 7. **No control is reached by scrolling.** Every button is on screen at
    once, whatever the window. A bar or rail measures its groups and folds
    them until they fit (`ControlsPlanner`); labels give way to icons

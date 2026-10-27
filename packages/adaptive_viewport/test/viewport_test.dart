@@ -323,6 +323,27 @@ void main() {
           EdgeInsets.zero);
     });
 
+    test('a rail beside the Duo inner column reaches the edge below the clock',
+        () {
+      final inner = ScreenViewport.fromMediaQuery(const MediaQueryData(
+        size: Size(951, 669),
+        padding: EdgeInsets.only(right: 82, bottom: 34),
+        viewPadding: EdgeInsets.only(right: 82, bottom: 34),
+      ));
+      // A full-height rail at the right edge steps down past the read-outs,
+      // not 82 pt in from the edge.
+      expect(
+          LocalSafeArea.insetsOf(
+              inner.within(const Rect.fromLTWH(871, 0, 80, 593)), inner,
+              bottom: false),
+          const EdgeInsets.only(top: 104));
+      // The page beside it loses nothing to the column.
+      expect(
+          LocalSafeArea.insetsOf(
+              inner.within(const Rect.fromLTWH(60, 0, 809, 593)), inner),
+          EdgeInsets.zero);
+    });
+
     test('the home indicator inset is kept', () {
       expect(insets(landscapeRight, const Rect.fromLTWH(0, 300, 678, 166)),
           const EdgeInsets.only(bottom: 34));

@@ -143,21 +143,24 @@ class ScreenProfile {
       Size(678, 466),
       padding: EdgeInsets.only(left: 84, bottom: 34),
     ),
+    // The inner screen has no status bar either (measured): upright an 82 pt
+    // band across the top with the clock and signal ring at its right end;
+    // on its side an 82 pt column down one long edge with them at its top.
     const ScreenProfile(
       'iPhone Duo inner portrait',
       Size(669, 951),
-      padding: EdgeInsets.only(top: 44, bottom: 34),
+      padding: EdgeInsets.only(top: 82, bottom: 34),
     ),
     const ScreenProfile(
       'iPhone Duo inner half-folded',
       Size(669, 951),
-      padding: EdgeInsets.only(top: 44, bottom: 34),
+      padding: EdgeInsets.only(top: 82, bottom: 34),
       hingeFolded: true,
     ),
     const ScreenProfile(
       'iPhone Duo inner landscape',
       Size(951, 669),
-      padding: EdgeInsets.only(top: 24, bottom: 20),
+      padding: EdgeInsets.only(right: 82, bottom: 34),
     ),
     // Galaxy Z Flip 4: a centred hole-punch; a fold across the long side.
     ScreenProfile(
