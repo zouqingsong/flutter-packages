@@ -143,10 +143,10 @@ to the devices someone happened to test.
    medview's DICOM viewer has the same progression.
 
    A product with a physical remote may lay the remote out instead. The
-   FlexionCam Control live deck is the CJ-Optik handheld remote, key for key
-   and in its order: capture and record; AWB and AE-L; the white-balance
-   palette (each press moves to the next preset) and the gallery; ‹ ▶ › to
-   step through and open the captures; then the maker's mark, at the foot of
+   FlexionCam Control live deck follows the CJ-Optik handheld remote in its
+   order: capture and record; AWB and AE-L; the white-balance palette (each
+   press moves to the next preset) and the gallery; the newest capture, ▶ to
+   open it; then the maker's mark, at the foot of
    the deck with the keys centred above it. Stacked like
    the handset on a tall deck, its groups left to right on a wide one; the
    mark is dropped first, and a deck shorter still scales the remote down
@@ -330,6 +330,30 @@ to the devices someone happened to test.
     measures its own origin. Use `ScreenViewport.windowOf(context).tabletop`
     when feeding `TabletopLayout`; passing the box-local fold subtracts safe
     areas/app bars twice and can put the first deck control above the crease.
+
+11. **Stream controls only with a live picture.** Capture, record, annotate,
+    camera parameters, share and zoom act on the live picture. When no camera
+    is picked, the stream is stopped, still connecting or has failed, they are
+    **hidden, not shown disabled**: the "no camera" or "connecting…" panel is
+    not something to photograph, and an inert shutter reads as broken.
+    * **Live means a frame is on screen**, not that a server answered or a
+      camera was picked. Take it from whatever draws the picture: the
+      player's started state, an initialised camera controller. A "stream
+      started" flag set by a request is not enough.
+    * **A running recording keeps its stop button**, even after the picture
+      is lost. Nothing else of the shutter stays.
+    * **What works without a stream stays:** navigation, gallery, settings,
+      the camera picker, Start Stream and full screen. Keyboard shortcuts,
+      context-menu items and remote/deck shutters follow the same gate as the
+      buttons they mirror.
+    * **Don't let the rest jump.** A fixed rail keeps the shutter's slot empty
+      so the gallery thumbnail stays put; a planned toolbar or deck may
+      re-plan with fewer controls, and must still fit (rule 9).
+    * Close any palette (annotate, parameters) that was open when the picture
+      went away.
+    * **Test it both ways** on every profile: no stream and not recording
+      shows none of the shutter; no stream while recording shows only stop;
+      a live stream shows all of it.
 
 ## The screen class
 
