@@ -65,6 +65,14 @@ to the devices someone happened to test.
      art may run under the hole; a target must not rest on it.
    * Scrolling lists run the full width and add the bottom inset to their
      own end padding. They do not inherit it from a `SafeArea`.
+   * A scrolling page with a title (Settings) wraps the title and the rows
+     below it separately, inside the scroll view, not the page. One
+     `LocalSafeArea` round the whole page overlaps the read-outs beside the
+     title, and the cheapest step for that box is sideways: every row then
+     stands the column's width off the edge for the page's whole height,
+     a stripe. Wrapped apart, the title steps sideways (it is short) and
+     the rows step down just past the read-outs (they are tall), keeping
+     the full width.
    * A page whose background is one flat colour (a privacy page, say) shows
      no stripe under a `SafeArea`, but it still loses the column's room.
      Prefer `LocalSafeArea` there too.
