@@ -281,6 +281,22 @@ abstract class CameraPlatform extends PlatformInterface {
         'getSupportedPreviewSizes() is not implemented.');
   }
 
+  /// Every format this camera can deliver, largest first, one entry per size at
+  /// the fastest rate that size supports.
+  ///
+  /// A [Size] and a frame rate together are what a camera actually negotiates, so
+  /// this is what a picker that offers real modes has to be built from.
+  Future<List<CameraVideoFormat>> getSupportedVideoFormats(int cameraId) {
+    throw UnimplementedError(
+        'getSupportedVideoFormats() is not implemented.');
+  }
+
+  /// Pins the camera to one of the formats [getSupportedVideoFormats] listed.
+  Future<void> setVideoFormat(
+      int cameraId, CameraVideoFormat format) {
+    throw UnimplementedError('setVideoFormat() is not implemented.');
+  }
+
   /// Gets the maximum supported manual focus distance.
   /// Returns the maximum focus distance supported by the camera.
   Future<double> getMaxFocusDistance(int cameraId) {

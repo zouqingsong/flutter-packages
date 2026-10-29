@@ -640,6 +640,66 @@ class PlatformFrameRateRange {
   int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
 }
 
+/// One picture format a camera can deliver.
+///
+/// [codec] is the device's own name for the stream format ("mjpg", "h264"), or
+/// empty where the platform hides it, as macOS does: a UVC camera's compressed
+/// modes are decoded by the driver and never surface in AVFoundation.
+class PlatformVideoFormat {
+  PlatformVideoFormat({
+    required this.width,
+    required this.height,
+    required this.maxFrameRate,
+    required this.codec,
+  });
+
+  int width;
+
+  int height;
+
+  int maxFrameRate;
+
+  String codec;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      width,
+      height,
+      maxFrameRate,
+      codec,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PlatformVideoFormat decode(Object result) {
+    result as List<Object?>;
+    return PlatformVideoFormat(
+      width: result[0]! as int,
+      height: result[1]! as int,
+      maxFrameRate: result[2]! as int,
+      codec: result[3]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformVideoFormat || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(width, other.width) && _deepEquals(height, other.height) && _deepEquals(maxFrameRate, other.maxFrameRate) && _deepEquals(codec, other.codec);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+}
+
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -708,6 +768,9 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is PlatformFrameRateRange) {
       buffer.putUint8(148);
       writeValue(buffer, value.encode());
+    }    else if (value is PlatformVideoFormat) {
+      buffer.putUint8(149);
+      writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
     }
@@ -768,6 +831,8 @@ class _PigeonCodec extends StandardMessageCodec {
         return PlatformSize.decode(readValue(buffer)!);
       case 148:
         return PlatformFrameRateRange.decode(readValue(buffer)!);
+      case 149:
+        return PlatformVideoFormat.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -870,6 +935,49 @@ class CameraApi {
     )
     ;
     return (pigeonVar_replyValue! as List<Object?>).cast<PlatformSize>();
+  }
+
+  /// Every format the camera can deliver, largest first, one entry per size at
+  /// the fastest rate that size supports.
+  Future<List<PlatformVideoFormat>> getSupportedVideoFormats(int cameraId) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.camera_avfoundation.CameraApi.getSupportedVideoFormats$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[cameraId]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    ;
+    return (pigeonVar_replyValue! as List<Object?>).cast<PlatformVideoFormat>();
+  }
+
+  /// Pins the camera to one of the formats it listed.
+  ///
+  /// Frames are capped at [frameRate], which is what stops a 4K mode being
+  /// negotiated at a rate the machine cannot carry.
+  Future<void> setVideoFormat(int cameraId, int width, int height, int frameRate) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.camera_avfoundation.CameraApi.setVideoFormat$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[cameraId, width, height, frameRate]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
   /// Begins streaming frames from the camera.

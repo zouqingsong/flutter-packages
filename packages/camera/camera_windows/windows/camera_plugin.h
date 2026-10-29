@@ -59,6 +59,13 @@ class CameraPlugin : public flutter::Plugin,
   void Initialize(
       int64_t camera_id,
       std::function<void(ErrorOr<PlatformSize> reply)> result) override;
+  ErrorOr<flutter::EncodableList> GetSupportedPreviewSizes(
+      int64_t camera_id) override;
+  ErrorOr<flutter::EncodableList> GetSupportedVideoFormats(
+      int64_t camera_id) override;
+  std::optional<FlutterError> SetVideoFormat(int64_t camera_id, int64_t width,
+                                            int64_t height,
+                                            int64_t frame_rate) override;
   void PausePreview(
       int64_t camera_id,
       std::function<void(std::optional<FlutterError> reply)> result) override;

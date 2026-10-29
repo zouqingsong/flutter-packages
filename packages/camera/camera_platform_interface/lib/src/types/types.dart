@@ -5,6 +5,7 @@
 export 'camera_description.dart';
 export 'camera_exception.dart';
 export 'camera_image_data.dart';
+export 'camera_video_format.dart';
 export 'color_effect.dart';
 export 'exposure_mode.dart';
 export 'flash_mode.dart';

@@ -204,6 +204,25 @@ class PlatformFrameRateRange {
   final int maxFrameRate;
 }
 
+/// One picture format a camera can deliver.
+///
+/// [codec] is the device's own name for the stream format ("mjpg", "h264"), or
+/// empty where the platform hides it, as macOS does: a UVC camera's compressed
+/// modes are decoded by the driver and never surface in AVFoundation.
+class PlatformVideoFormat {
+  PlatformVideoFormat({
+    required this.width,
+    required this.height,
+    required this.maxFrameRate,
+    required this.codec,
+  });
+
+  final int width;
+  final int height;
+  final int maxFrameRate;
+  final String codec;
+}
+
 @HostApi()
 abstract class CameraApi {
   /// Returns the list of available cameras.
@@ -229,6 +248,20 @@ abstract class CameraApi {
   @async
   @ObjCSelector('supportedPreviewSizesWithCameraId:')
   List<PlatformSize> getSupportedPreviewSizes(int cameraId);
+
+  /// Every format the camera can deliver, largest first, one entry per size at
+  /// the fastest rate that size supports.
+  @async
+  @ObjCSelector('supportedVideoFormatsWithCameraId:')
+  List<PlatformVideoFormat> getSupportedVideoFormats(int cameraId);
+
+  /// Pins the camera to one of the formats it listed.
+  ///
+  /// Frames are capped at [frameRate], which is what stops a 4K mode being
+  /// negotiated at a rate the machine cannot carry.
+  @async
+  @ObjCSelector('setVideoFormatWithCameraId:width:height:frameRate:')
+  void setVideoFormat(int cameraId, int width, int height, int frameRate);
 
   /// Begins streaming frames from the camera.
   @async

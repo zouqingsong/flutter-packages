@@ -903,6 +903,36 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
+  /// Every format this camera can deliver, largest first.
+  ///
+  /// A format is a size *and* a frame rate: the same size at 30 and at 60 fps is two
+  /// modes with very different cost, and only the pair is what the camera
+  /// negotiates. Use this to offer the modes the device really has.
+  ///
+  /// Empty when the platform cannot enumerate them. Throws a [CameraException] if
+  /// the platform reports a failure.
+  Future<List<CameraVideoFormat>> getSupportedVideoFormats() async {
+    _throwIfNotInitialized('getSupportedVideoFormats');
+    try {
+      return await CameraPlatform.instance.getSupportedVideoFormats(_cameraId);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Pins the camera to one of [getSupportedVideoFormats]'s formats.
+  ///
+  /// Applies to the running session: the next frames arrive at the new size. A
+  /// controller that has not been initialized throws a [CameraException].
+  Future<void> setVideoFormat(CameraVideoFormat format) async {
+    _throwIfNotInitialized('setVideoFormat');
+    try {
+      await CameraPlatform.instance.setVideoFormat(_cameraId, format);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
   /// Sets the manual focus distance for the camera.
   ///
   /// The [distance] should be between 0.0 (closest) and 1.0 (farthest).

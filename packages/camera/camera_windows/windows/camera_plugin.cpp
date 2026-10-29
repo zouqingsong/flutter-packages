@@ -424,6 +424,59 @@ void CameraPlugin::Initialize(
   }
 }
 
+ErrorOr<flutter::EncodableList> CameraPlugin::GetSupportedPreviewSizes(
+    int64_t camera_id) {
+  auto camera = GetCameraByCameraId(camera_id);
+  if (!camera) {
+    return FlutterError("camera_error", "Camera not created");
+  }
+  auto cc = camera->GetCaptureController();
+  if (!cc) {
+    return FlutterError("camera_error", "Camera not created");
+  }
+
+  flutter::EncodableList sizes;
+  for (const auto& size : cc->GetSupportedPreviewSizes()) {
+    sizes.push_back(flutter::CustomEncodableValue(
+        PlatformSize(size.first, size.second)));
+  }
+  return sizes;
+}
+
+ErrorOr<flutter::EncodableList> CameraPlugin::GetSupportedVideoFormats(
+    int64_t camera_id) {
+  auto camera = GetCameraByCameraId(camera_id);
+  if (!camera) {
+    return FlutterError("camera_error", "Camera not created");
+  }
+  auto cc = camera->GetCaptureController();
+  if (!cc) {
+    return FlutterError("camera_error", "Camera not created");
+  }
+
+  flutter::EncodableList formats;
+  for (const auto& format : cc->GetSupportedVideoFormats()) {
+    formats.push_back(flutter::CustomEncodableValue(format));
+  }
+  return formats;
+}
+
+std::optional<FlutterError> CameraPlugin::SetVideoFormat(
+    int64_t camera_id, int64_t width, int64_t height, int64_t frame_rate) {
+  auto camera = GetCameraByCameraId(camera_id);
+  if (!camera) {
+    return FlutterError("camera_error", "Camera not created");
+  }
+  auto cc = camera->GetCaptureController();
+  if (!cc) {
+    return FlutterError("camera_error", "Camera not created");
+  }
+  cc->SetPreferredFormat(static_cast<uint32_t>(width),
+                         static_cast<uint32_t>(height),
+                         static_cast<uint32_t>(frame_rate));
+  return std::nullopt;
+}
+
 void CameraPlugin::PausePreview(
     int64_t camera_id,
     std::function<void(std::optional<FlutterError> reply)> result) {

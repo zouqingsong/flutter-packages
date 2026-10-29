@@ -639,6 +639,58 @@ struct PlatformFrameRateRange: Hashable {
   }
 }
 
+/// One picture format a camera can deliver.
+///
+/// [codec] is the device's own name for the stream format ("mjpg", "h264"), or
+/// empty where the platform hides it, as macOS does: a UVC camera's compressed
+/// modes are decoded by the driver and never surface in AVFoundation.
+///
+/// Generated class from Pigeon that represents data sent in messages.
+struct PlatformVideoFormat: Hashable {
+  var width: Int64
+  var height: Int64
+  var maxFrameRate: Int64
+  var codec: String
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> PlatformVideoFormat? {
+    let width = pigeonVar_list[0] as! Int64
+    let height = pigeonVar_list[1] as! Int64
+    let maxFrameRate = pigeonVar_list[2] as! Int64
+    let codec = pigeonVar_list[3] as! String
+
+    return PlatformVideoFormat(
+      width: width,
+      height: height,
+      maxFrameRate: maxFrameRate,
+      codec: codec
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      width,
+      height,
+      maxFrameRate,
+      codec,
+    ]
+  }
+  static func == (lhs: PlatformVideoFormat, rhs: PlatformVideoFormat) -> Bool {
+    if Swift.type(of: lhs) != Swift.type(of: rhs) {
+      return false
+    }
+    return deepEqualsMessages(lhs.width, rhs.width) && deepEqualsMessages(lhs.height, rhs.height) && deepEqualsMessages(lhs.maxFrameRate, rhs.maxFrameRate) && deepEqualsMessages(lhs.codec, rhs.codec)
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine("PlatformVideoFormat")
+    deepHashMessages(value: width, hasher: &hasher)
+    deepHashMessages(value: height, hasher: &hasher)
+    deepHashMessages(value: maxFrameRate, hasher: &hasher)
+    deepHashMessages(value: codec, hasher: &hasher)
+  }
+}
+
 private class MessagesPigeonCodecReader: FlutterStandardReader {
   override func readValue(ofType type: UInt8) -> Any? {
     switch type {
@@ -730,6 +782,8 @@ private class MessagesPigeonCodecReader: FlutterStandardReader {
       return PlatformSize.fromList(self.readValue() as! [Any?])
     case 148:
       return PlatformFrameRateRange.fromList(self.readValue() as! [Any?])
+    case 149:
+      return PlatformVideoFormat.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
     }
@@ -798,6 +852,9 @@ private class MessagesPigeonCodecWriter: FlutterStandardWriter {
     } else if let value = value as? PlatformFrameRateRange {
       super.writeByte(148)
       super.writeValue(value.toList())
+    } else if let value = value as? PlatformVideoFormat {
+      super.writeByte(149)
+      super.writeValue(value.toList())
     } else {
       super.writeValue(value)
     }
@@ -835,6 +892,14 @@ protocol CameraApi {
   /// closest format it has to the one asked for, so a caller that offers a list
   /// of modes has to be able to offer only the ones that exist.
   func getSupportedPreviewSizes(cameraId: Int64, completion: @escaping (Result<[PlatformSize], Error>) -> Void)
+  /// Every format the camera can deliver, largest first, one entry per size at
+  /// the fastest rate that size supports.
+  func getSupportedVideoFormats(cameraId: Int64, completion: @escaping (Result<[PlatformVideoFormat], Error>) -> Void)
+  /// Pins the camera to one of the formats it listed.
+  ///
+  /// Frames are capped at [frameRate], which is what stops a 4K mode being
+  /// negotiated at a rate the machine cannot carry.
+  func setVideoFormat(cameraId: Int64, width: Int64, height: Int64, frameRate: Int64, completion: @escaping (Result<Void, Error>) -> Void)
   /// Begins streaming frames from the camera.
   func startImageStream(completion: @escaping (Result<Void, Error>) -> Void)
   /// Stops streaming frames from the camera.
@@ -1047,6 +1112,49 @@ class CameraApiSetup {
       }
     } else {
       getSupportedPreviewSizesChannel.setMessageHandler(nil)
+    }
+    /// Every format the camera can deliver, largest first, one entry per size at
+    /// the fastest rate that size supports.
+    let getSupportedVideoFormatsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.camera_avfoundation.CameraApi.getSupportedVideoFormats\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      getSupportedVideoFormatsChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let cameraIdArg = args[0] as! Int64
+        api.getSupportedVideoFormats(cameraId: cameraIdArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      getSupportedVideoFormatsChannel.setMessageHandler(nil)
+    }
+    /// Pins the camera to one of the formats it listed.
+    ///
+    /// Frames are capped at [frameRate], which is what stops a 4K mode being
+    /// negotiated at a rate the machine cannot carry.
+    let setVideoFormatChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.camera_avfoundation.CameraApi.setVideoFormat\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setVideoFormatChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let cameraIdArg = args[0] as! Int64
+        let widthArg = args[1] as! Int64
+        let heightArg = args[2] as! Int64
+        let frameRateArg = args[3] as! Int64
+        api.setVideoFormat(cameraId: cameraIdArg, width: widthArg, height: heightArg, frameRate: frameRateArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      setVideoFormatChannel.setMessageHandler(nil)
     }
     /// Begins streaming frames from the camera.
     let startImageStreamChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.camera_avfoundation.CameraApi.startImageStream\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)

@@ -211,6 +211,46 @@ class CameraWindows extends CameraPlatform {
   }
 
   @override
+  Future<List<Size>> getSupportedPreviewSizes(int cameraId) async {
+    try {
+      return (await _hostApi.getSupportedPreviewSizes(cameraId))
+          .map((size) => Size(size.width, size.height))
+          .toList();
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  @override
+  Future<List<CameraVideoFormat>> getSupportedVideoFormats(int cameraId) async {
+    try {
+      return (await _hostApi.getSupportedVideoFormats(cameraId))
+          .map((format) => CameraVideoFormat(
+                size: Size(format.width.toDouble(), format.height.toDouble()),
+                maxFrameRate: format.maxFrameRate.toInt(),
+                codec: format.codec,
+              ))
+          .toList();
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  @override
+  Future<void> setVideoFormat(int cameraId, CameraVideoFormat format) async {
+    try {
+      await _hostApi.setVideoFormat(
+        cameraId,
+        format.size.width.round(),
+        format.size.height.round(),
+        format.maxFrameRate,
+      );
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  @override
   Future<void> dispose(int cameraId) async {
     await _hostApi.dispose(cameraId);
 

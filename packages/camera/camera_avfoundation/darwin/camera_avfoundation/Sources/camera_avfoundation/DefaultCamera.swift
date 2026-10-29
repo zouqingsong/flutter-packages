@@ -455,6 +455,82 @@ final class DefaultCamera: NSObject, Camera {
     return sizes.sorted { $0.width * $0.height > $1.width * $1.height }
   }
 
+  /// Every format this camera can deliver, one entry per size and rate.
+  ///
+  /// A size at 30 and the same size at 60 are two modes with very different cost,
+  /// and a camera lists them separately, so both are reported: choosing 4K at 60
+  /// when the machine cannot carry it is a decision only the caller can make.
+  func supportedVideoFormats() -> [(width: Int, height: Int, maxFrameRate: Int, codec: String)] {
+    var seen = Set<String>()
+    var formats: [(width: Int, height: Int, maxFrameRate: Int, codec: String)] = []
+    for format in captureDevice.flutterFormats {
+      let dimensions = videoDimensionsConverter(format)
+      guard dimensions.width > 0, dimensions.height > 0 else { continue }
+      for range in format.flutterVideoSupportedFrameRateRanges {
+        let rate = Int(range.maxFrameRate.rounded())
+        guard rate > 0 else { continue }
+        // AVFoundation reports the frame layout, not the stream compression: a
+        // UVC camera's MJPEG or H.264 modes are decoded by the driver and never
+        // reach here, so there is no codec name to report.
+        let key = "\(dimensions.width)x\(dimensions.height)@\(rate)"
+        guard seen.insert(key).inserted else { continue }
+        formats.append((
+          width: Int(dimensions.width), height: Int(dimensions.height),
+          maxFrameRate: rate, codec: ""
+        ))
+      }
+    }
+    return formats.sorted {
+      let leftArea = $0.width * $0.height
+      let rightArea = $1.width * $1.height
+      if leftArea != rightArea { return leftArea > rightArea }
+      return $0.maxFrameRate > $1.maxFrameRate
+    }
+  }
+
+  /// Pins one of the formats [supportedVideoFormats] listed.
+  ///
+  /// - Parameter frameRate: the cap to apply, not a request for exactly this rate;
+  ///   a camera that offers a range ends up at the highest it has under the cap.
+  func setVideoFormat(width: Int, height: Int, frameRate: Int) {
+    guard
+      let format = captureDevice.flutterFormats.first(where: {
+        let dimensions = videoDimensionsConverter($0)
+        return Int(dimensions.width) == width && Int(dimensions.height) == height
+      })
+    else { return }
+
+    // The duration has to come from the format's own range. AVFoundation compares
+    // durations exactly, and a computed 1/fps is not the value the camera lists
+    // (60 fps here is 1000000/59999880); the setter then raises an Objective-C
+    // exception, which Swift cannot catch, so a wrong number terminates the app.
+    let ranges = format.avFormat.videoSupportedFrameRateRanges
+    guard !ranges.isEmpty else { return }
+    let target = Double(frameRate)
+    let range =
+      ranges
+      .filter { $0.maxFrameRate + 0.5 >= target }
+      .min { $0.maxFrameRate < $1.maxFrameRate }
+      ?? ranges.min { $0.maxFrameRate < $1.maxFrameRate }
+    guard let duration = range?.minFrameDuration else { return }
+
+    do {
+      try mediaSettingsAVWrapper.lockDevice(captureDevice)
+      defer { mediaSettingsAVWrapper.unlockDevice(captureDevice) }
+      captureDevice.flutterActiveFormat = format
+      mediaSettingsAVWrapper.setMinFrameDuration(duration, on: captureDevice)
+      mediaSettingsAVWrapper.setMaxFrameDuration(duration, on: captureDevice)
+    } catch {
+      reportErrorMessage("Unable to set video format: \(error)")
+      return
+    }
+    let size = videoDimensionsConverter(format)
+    previewSize = CGSize(width: CGFloat(size.width), height: CGFloat(size.height))
+    writeDiag(
+      "video format set to \(size.width)x\(size.height) at "
+        + String(format: "%.2f", range?.maxFrameRate ?? 0) + " fps")
+  }
+
   /// Pins the camera to the format a preset asks for.
   ///
   /// A session preset does not decide what a UVC camera delivers. Measured on a

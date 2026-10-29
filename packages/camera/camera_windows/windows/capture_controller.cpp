@@ -12,6 +12,9 @@
 #include <string>
 #include <iostream>
 #include <chrono>
+#include <algorithm>
+#include <utility>
+#include <vector>
 
 #include "com_heap_ptr.h"
 #include "photo_handler.h"
@@ -413,6 +416,14 @@ bool FindBestMediaType(DWORD source_stream_index, IMFCaptureSource* source,
   uint32_t best_width = 0;
   uint32_t best_height = 0;
   float best_framerate = 0.f;
+  uint64_t best_area = 0;
+
+  // The smallest usable type, kept in case nothing fits under max_height: a
+  // preset is a request, and a camera whose smallest mode is above it must still
+  // start rather than fail with "Failed to initialize video preview".
+  ComPtr<IMFMediaType> smallest_media_type;
+  uint32_t smallest_width = 0;
+  uint32_t smallest_height = 0;
 
   // Loop native media types.
   for (int i = 0;; i++) {
@@ -439,16 +450,33 @@ bool FindBestMediaType(DWORD source_stream_index, IMFCaptureSource* source,
     uint32_t frame_height;
     if (SUCCEEDED(MFGetAttributeSize(media_type.Get(), MF_MT_FRAME_SIZE,
                                      &frame_width, &frame_height))) {
-      // Update target mediatype
+      // Size decides and frame rate only breaks a tie. Testing them as
+      // alternatives let a 59 fps 1080p mode beat 4K at 30, so every preset
+      // resolved to 1080p whatever was asked for.
+      const uint64_t area =
+          static_cast<uint64_t>(frame_width) * frame_height;
       if (frame_height <= max_height &&
-          (best_width < frame_width || best_height < frame_height ||
-           best_framerate < frame_rate)) {
+          (best_area == 0 || area > best_area ||
+           (area == best_area && best_framerate < frame_rate))) {
         media_type.CopyTo(target_media_type);
         best_width = frame_width;
         best_height = frame_height;
+        best_area = area;
         best_framerate = frame_rate;
       }
+      if (!smallest_media_type ||
+          area < static_cast<uint64_t>(smallest_width) * smallest_height) {
+        media_type.CopyTo(smallest_media_type.GetAddressOf());
+        smallest_width = frame_width;
+        smallest_height = frame_height;
+      }
     }
+  }
+
+  if (*target_media_type == nullptr && smallest_media_type) {
+    smallest_media_type.CopyTo(target_media_type);
+    best_width = smallest_width;
+    best_height = smallest_height;
   }
 
   if (target_frame_width && target_frame_height) {
@@ -475,6 +503,23 @@ HRESULT CaptureControllerImpl::FindBaseMediaTypes() {
 
 HRESULT CaptureControllerImpl::FindBaseMediaTypesForSource(
     IMFCaptureSource* source) {
+  // A format the caller pinned wins over anything the presets would choose: it is
+  // the only thing that can express a frame rate, or a size the presets lack.
+  if (FindPreferredMediaType(
+          (DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW,
+          source, base_preview_media_type_.ReleaseAndGetAddressOf())) {
+    base_preview_media_type_.CopyTo(base_capture_media_type_.ReleaseAndGetAddressOf());
+    base_preview_media_type_.CopyTo(base_record_media_type_.ReleaseAndGetAddressOf());
+    uint32_t width = 0;
+    uint32_t height = 0;
+    if (SUCCEEDED(MFGetAttributeSize(base_preview_media_type_.Get(),
+                                     MF_MT_FRAME_SIZE, &width, &height))) {
+      preview_frame_width_ = width;
+      preview_frame_height_ = height;
+    }
+    return S_OK;
+  }
+
   // Find base media type for previewing.
   if (!FindBestMediaType(
           (DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW,
@@ -576,6 +621,224 @@ void CaptureControllerImpl::StopRecord() {
 
 // Starts capturing preview frames using preview handler
 // After first frame is captured, OnPreviewStarted is called
+std::vector<std::pair<uint32_t, uint32_t>>
+CaptureControllerImpl::GetSupportedPreviewSizes() const {
+  std::vector<std::pair<uint32_t, uint32_t>> sizes;
+  if (!video_source_) {
+    return sizes;
+  }
+
+  // Read from the device's own presentation descriptor: the capture engine's
+  // source needs a running engine, and the list is wanted before one exists.
+  ComPtr<IMFPresentationDescriptor> descriptor;
+  if (FAILED(
+          video_source_->CreatePresentationDescriptor(descriptor.GetAddressOf()))) {
+    return sizes;
+  }
+
+  DWORD stream_count = 0;
+  descriptor->GetStreamDescriptorCount(&stream_count);
+  for (DWORD i = 0; i < stream_count; i++) {
+    BOOL selected = FALSE;
+    ComPtr<IMFStreamDescriptor> stream;
+    if (FAILED(descriptor->GetStreamDescriptorByIndex(
+            i, &selected, stream.GetAddressOf()))) {
+      continue;
+    }
+    ComPtr<IMFMediaTypeHandler> handler;
+    if (FAILED(stream->GetMediaTypeHandler(handler.GetAddressOf()))) {
+      continue;
+    }
+    GUID major_type = GUID_NULL;
+    if (FAILED(handler->GetMajorType(&major_type)) ||
+        major_type != MFMediaType_Video) {
+      continue;
+    }
+
+    DWORD type_count = 0;
+    handler->GetMediaTypeCount(&type_count);
+    for (DWORD t = 0; t < type_count; t++) {
+      ComPtr<IMFMediaType> type;
+      if (FAILED(handler->GetMediaTypeByIndex(t, type.GetAddressOf()))) {
+        continue;
+      }
+      UINT32 width = 0;
+      UINT32 height = 0;
+      if (FAILED(
+              MFGetAttributeSize(type.Get(), MF_MT_FRAME_SIZE, &width, &height)) ||
+          width == 0 || height == 0) {
+        continue;
+      }
+      const std::pair<uint32_t, uint32_t> size(width, height);
+      if (std::find(sizes.begin(), sizes.end(), size) == sizes.end()) {
+        sizes.push_back(size);
+      }
+    }
+  }
+
+  std::sort(sizes.begin(), sizes.end(),
+            [](const std::pair<uint32_t, uint32_t>& left,
+               const std::pair<uint32_t, uint32_t>& right) {
+              return static_cast<uint64_t>(left.first) * left.second >
+                     static_cast<uint64_t>(right.first) * right.second;
+            });
+  return sizes;
+}
+
+std::vector<PlatformVideoFormat>
+CaptureControllerImpl::GetSupportedVideoFormats() const {
+  std::vector<PlatformVideoFormat> formats;
+  if (!video_source_) {
+    return formats;
+  }
+
+  ComPtr<IMFPresentationDescriptor> descriptor;
+  if (FAILED(
+          video_source_->CreatePresentationDescriptor(descriptor.GetAddressOf()))) {
+    return formats;
+  }
+
+  DWORD stream_count = 0;
+  descriptor->GetStreamDescriptorCount(&stream_count);
+  for (DWORD i = 0; i < stream_count; i++) {
+    BOOL selected = FALSE;
+    ComPtr<IMFStreamDescriptor> stream;
+    if (FAILED(descriptor->GetStreamDescriptorByIndex(
+            i, &selected, stream.GetAddressOf()))) {
+      continue;
+    }
+    ComPtr<IMFMediaTypeHandler> handler;
+    if (FAILED(stream->GetMediaTypeHandler(handler.GetAddressOf()))) {
+      continue;
+    }
+    GUID major_type = GUID_NULL;
+    if (FAILED(handler->GetMajorType(&major_type)) ||
+        major_type != MFMediaType_Video) {
+      continue;
+    }
+
+    DWORD type_count = 0;
+    handler->GetMediaTypeCount(&type_count);
+    for (DWORD t = 0; t < type_count; t++) {
+      ComPtr<IMFMediaType> type;
+      if (FAILED(handler->GetMediaTypeByIndex(t, type.GetAddressOf()))) {
+        continue;
+      }
+      UINT32 width = 0;
+      UINT32 height = 0;
+      if (FAILED(
+              MFGetAttributeSize(type.Get(), MF_MT_FRAME_SIZE, &width, &height)) ||
+          width == 0 || height == 0) {
+        continue;
+      }
+      UINT32 rate_num = 0;
+      UINT32 rate_den = 0;
+      if (FAILED(MFGetAttributeRatio(type.Get(), MF_MT_FRAME_RATE, &rate_num,
+                                     &rate_den)) ||
+          rate_den == 0) {
+        continue;
+      }
+
+      GUID subtype = GUID_NULL;
+      type->GetGUID(MF_MT_SUBTYPE, &subtype);
+      // A Media Foundation subtype is a FourCC in the first field; anything else
+      // (an uncompressed 4:2:0 layout, say) has no name worth showing.
+      std::string codec;
+      if (subtype.Data2 == 0 && subtype.Data3 == 0 && subtype.Data1 != 0) {
+        for (int shift = 24; shift >= 0; shift -= 8) {
+          const char c = static_cast<char>((subtype.Data1 >> shift) & 0xFF);
+          if (c >= 'A' && c <= 'Z') {
+            codec.push_back(static_cast<char>(c - 'A' + 'a'));
+          } else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+            codec.push_back(c);
+          }
+        }
+      }
+
+      const int64_t frame_rate =
+          static_cast<int64_t>(rate_num / rate_den + (rate_num % rate_den ? 1 : 0));
+      const bool known = std::any_of(
+          formats.begin(), formats.end(),
+          [&](const PlatformVideoFormat& other) {
+            return other.width() == static_cast<int64_t>(width) &&
+                   other.height() == static_cast<int64_t>(height) &&
+                   other.max_frame_rate() == frame_rate;
+          });
+      if (!known) {
+        formats.emplace_back(static_cast<int64_t>(width),
+                             static_cast<int64_t>(height), frame_rate, codec);
+      }
+    }
+  }
+
+  std::sort(formats.begin(), formats.end(),
+            [](const PlatformVideoFormat& left, const PlatformVideoFormat& right) {
+              const int64_t left_area = left.width() * left.height();
+              const int64_t right_area = right.width() * right.height();
+              if (left_area != right_area) return left_area > right_area;
+              return left.max_frame_rate() > right.max_frame_rate();
+            });
+  return formats;
+}
+
+void CaptureControllerImpl::SetPreferredFormat(uint32_t width, uint32_t height,
+                                               uint32_t frame_rate) {
+  preferred_width_ = width;
+  preferred_height_ = height;
+  preferred_frame_rate_ = frame_rate;
+}
+
+/// Finds the media type the caller pinned, if one was.
+bool CaptureControllerImpl::FindPreferredMediaType(
+    DWORD source_stream_index, IMFCaptureSource* source,
+    IMFMediaType** target_media_type) {
+  if (preferred_width_ == 0 || preferred_height_ == 0) {
+    return false;
+  }
+
+  ComPtr<IMFMediaType> media_type;
+  ComPtr<IMFMediaType> first_size_match;
+  for (int i = 0;; i++) {
+    if (FAILED(source->GetAvailableDeviceMediaType(
+            source_stream_index, i, media_type.GetAddressOf()))) {
+      break;
+    }
+    UINT32 width = 0;
+    UINT32 height = 0;
+    if (FAILED(
+            MFGetAttributeSize(media_type.Get(), MF_MT_FRAME_SIZE, &width, &height))) {
+      continue;
+    }
+    if (width != preferred_width_ || height != preferred_height_) {
+      continue;
+    }
+    if (preferred_frame_rate_ == 0) {
+      media_type.CopyTo(target_media_type);
+      return true;
+    }
+    UINT32 rate_num = 0;
+    UINT32 rate_den = 0;
+    if (SUCCEEDED(MFGetAttributeRatio(media_type.Get(), MF_MT_FRAME_RATE,
+                                      &rate_num, &rate_den)) &&
+        rate_den != 0 &&
+        static_cast<uint32_t>(rate_num / rate_den) == preferred_frame_rate_) {
+      media_type.CopyTo(target_media_type);
+      return true;
+    }
+    if (!first_size_match) {
+      media_type.CopyTo(first_size_match.GetAddressOf());
+    }
+  }
+
+  // The rate the device does not have: the size it does is closer to the request
+  // than a different size would be.
+  if (first_size_match) {
+    first_size_match.CopyTo(target_media_type);
+    return true;
+  }
+  return false;
+}
+
 void CaptureControllerImpl::StartPreview() {
   assert(capture_engine_callback_handler_);
   assert(capture_engine_);

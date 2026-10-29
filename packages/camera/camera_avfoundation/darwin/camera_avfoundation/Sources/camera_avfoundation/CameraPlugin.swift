@@ -176,6 +176,42 @@ extension CameraPlugin: CameraApi {
     }
   }
 
+  /// Every format the camera can deliver, for a picker that offers real modes.
+  func getSupportedVideoFormats(
+    cameraId: Int64,
+    completion: @escaping (Result<[PlatformVideoFormat], any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      guard let camera = self?.camera else {
+        completion(.success([]))
+        return
+      }
+      completion(
+        .success(
+          camera.supportedVideoFormats().map {
+            PlatformVideoFormat(
+              width: Int64($0.width),
+              height: Int64($0.height),
+              maxFrameRate: Int64($0.maxFrameRate),
+              codec: $0.codec)
+          }))
+    }
+  }
+
+  func setVideoFormat(
+    cameraId: Int64,
+    width: Int64,
+    height: Int64,
+    frameRate: Int64,
+    completion: @escaping (Result<Void, any Error>) -> Void
+  ) {
+    captureSessionQueue.async { [weak self] in
+      self?.camera?.setVideoFormat(
+        width: Int(width), height: Int(height), frameRate: Int(frameRate))
+      completion(.success(()))
+    }
+  }
+
   func getAvailableCameras(
     completion: @escaping (Result<[PlatformCameraDescription], any Error>) -> Void
   ) {

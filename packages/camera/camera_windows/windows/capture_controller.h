@@ -109,6 +109,21 @@ class CaptureController {
   // for the plugin's status reporting: frames only flow once the preview is
   // running, and "no frames" says nothing about which of those is missing.
   virtual std::string DescribeState() const = 0;
+
+  // The picture sizes the device can deliver, largest first.
+  virtual std::vector<std::pair<uint32_t, uint32_t>> GetSupportedPreviewSizes()
+      const = 0;
+
+  // The picture formats the device can deliver, largest first, one entry per
+  // size and rate.
+  virtual std::vector<PlatformVideoFormat> GetSupportedVideoFormats() const = 0;
+
+  // Pins the format the next preview should use, or clears it with zeros.
+  //
+  // A device media type cannot be swapped under a running capture engine, so the
+  // caller re-creates the camera to change it and this records what to use.
+  virtual void SetPreferredFormat(uint32_t width, uint32_t height,
+                                  uint32_t frame_rate) = 0;
 };
 
 // Concrete implementation of the |CaptureController| interface.
@@ -135,6 +150,11 @@ class CaptureControllerImpl : public CaptureController,
                          const PlatformMediaSettings& media_settings) override;
   uint32_t GetPreviewWidth() const override { return preview_frame_width_; }
   uint32_t GetPreviewHeight() const override { return preview_frame_height_; }
+  std::vector<std::pair<uint32_t, uint32_t>> GetSupportedPreviewSizes()
+      const override;
+  std::vector<PlatformVideoFormat> GetSupportedVideoFormats() const override;
+  void SetPreferredFormat(uint32_t width, uint32_t height,
+                          uint32_t frame_rate) override;
   void StartPreview() override;
   void PausePreview() override;
   void ResumePreview() override;
@@ -205,6 +225,15 @@ class CaptureControllerImpl : public CaptureController,
   // Enumerates video_sources media types and finds out best resolution
   // for a given source.
   HRESULT FindBaseMediaTypesForSource(IMFCaptureSource* source);
+
+  // Finds the media type the caller pinned, if any.
+  bool FindPreferredMediaType(DWORD source_stream_index, IMFCaptureSource* source,
+                              IMFMediaType** target_media_type);
+
+  // The format the caller pinned, or zeros when none was.
+  uint32_t preferred_width_ = 0;
+  uint32_t preferred_height_ = 0;
+  uint32_t preferred_frame_rate_ = 0;
 
   // Stops preview. Called internally on camera reset and dispose.
   HRESULT StopPreview();

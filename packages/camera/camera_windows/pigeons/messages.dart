@@ -41,6 +41,23 @@ class PlatformSize {
   final double height;
 }
 
+/// One picture format a camera can deliver.
+class PlatformVideoFormat {
+  PlatformVideoFormat({
+    required this.width,
+    required this.height,
+    required this.maxFrameRate,
+    required this.codec,
+  });
+
+  final int width;
+  final int height;
+  final int maxFrameRate;
+
+  /// The stream format the device names, lower case: `mjpg`, `h264`, `nv12`.
+  final String codec;
+}
+
 @HostApi()
 abstract class CameraApi {
   /// Returns the names of all of the available capture devices.
@@ -53,6 +70,19 @@ abstract class CameraApi {
   /// Initializes a camera, and returns the size of its preview.
   @async
   PlatformSize initialize(int cameraId);
+
+  /// The picture sizes the device can deliver, largest first.
+  List<PlatformSize> getSupportedPreviewSizes(int cameraId);
+
+  /// The picture formats the device can deliver, largest first, one entry per
+  /// size at the fastest rate that size supports.
+  List<PlatformVideoFormat> getSupportedVideoFormats(int cameraId);
+
+  /// Pins the camera to one of [getSupportedVideoFormats]'s formats.
+  ///
+  /// Applies to the next preview: a device format cannot be swapped under a
+  /// running capture engine, so the caller re-creates the camera to change it.
+  void setVideoFormat(int cameraId, int width, int height, int frameRate);
 
   /// Disposes a camera that is no longer in use.
   void dispose(int cameraId);

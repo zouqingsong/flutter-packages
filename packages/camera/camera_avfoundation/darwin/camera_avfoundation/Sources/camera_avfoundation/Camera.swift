@@ -41,6 +41,12 @@ protocol Camera: FlutterTexture, AVCaptureVideoDataOutputSampleBufferDelegate,
   /// of modes needs the sizes the device actually has.
   func supportedPreviewSizes() -> [CGSize]
 
+  /// Every format the camera can deliver, one entry per size, largest first.
+  func supportedVideoFormats() -> [(width: Int, height: Int, maxFrameRate: Int, codec: String)]
+
+  /// Pins the camera to one of the formats [supportedVideoFormats] listed.
+  func setVideoFormat(width: Int, height: Int, frameRate: Int)
+
   /// Informs the Dart side of the plugin of the current camera state and capabilities.
   func reportInitializationState()
 
@@ -240,4 +246,10 @@ extension Camera {
   func supportedPreviewSizes() -> [CGSize] {
     return []
   }
+
+  func supportedVideoFormats() -> [(width: Int, height: Int, maxFrameRate: Int, codec: String)] {
+    return []
+  }
+
+  func setVideoFormat(width: Int, height: Int, frameRate: Int) {}
 }
