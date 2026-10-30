@@ -175,6 +175,10 @@ class CaptureControllerImpl : public CaptureController,
   }
   bool IsServingImageStream() const override { return HasImageStreamSink(); }
   bool UpdateBuffer(uint8_t* data, uint32_t data_length) override;
+  bool UsesGpuTexture() const override {
+    return texture_handler_ != nullptr && texture_handler_->UsesGpuTexture();
+  }
+  bool UpdateGpuSample(IMFSample* sample) override;
   void UpdateCaptureTime(uint64_t capture_time) override;
 
   // Sets capture engine, for testing purposes.

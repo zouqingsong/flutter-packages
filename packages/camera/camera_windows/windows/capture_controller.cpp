@@ -1038,7 +1038,8 @@ void CaptureControllerImpl::OnCaptureEngineInitialized(
     }
 
     // Create texture handler and register new texture.
-    texture_handler_ = std::make_unique<TextureHandler>(texture_registrar_);
+    texture_handler_ =
+        std::make_unique<TextureHandler>(texture_registrar_, dx11_device_);
 
     int64_t texture_id = texture_handler_->RegisterTexture();
     if (texture_id >= 0) {
@@ -1136,12 +1137,20 @@ void CaptureControllerImpl::OnRecordStopped(CameraResult result,
   }
 }
 
+// Implements CaptureEngineObserver::UpdateGpuSample.
+// The frame is converted and published on the sample thread, in place.
+bool CaptureControllerImpl::UpdateGpuSample(IMFSample* sample) {
+  if (texture_handler_ == nullptr || sample == nullptr) {
+    return false;
+  }
+  return texture_handler_->UpdateGpuSample(sample);
+}
+
 // Updates texture handlers buffer with given data.
 // Called via IMFCaptureEngineOnSampleCallback implementation.
 // Implements CaptureEngineObserver::UpdateBuffer.
 bool CaptureControllerImpl::UpdateBuffer(uint8_t* buffer,
-                                         uint32_t data_length) {
-  // The texture is one consumer of a sample, not the only one: an image stream
+                                         uint32_t data_length) {  // The texture is one consumer of a sample, not the only one: an image stream
   // is served whether or not anything is drawn, and a camera whose preview
   // never started still has frames to give.
   const bool updated = texture_handler_ != nullptr &&

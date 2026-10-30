@@ -5,8 +5,11 @@
 
 #include "capture_engine_listener.h"
 
+#include <d3d11.h>
 #include <mfcaptureengine.h>
 #include <wrl/client.h>
+
+#include <iostream>
 
 namespace camera_windows {
 
@@ -73,8 +76,46 @@ HRESULT CaptureEngineListener::OnSample(IMFSample* sample) {
       return hr;
     }
 
+    // The GPU path keeps the frame where the engine put it. An image stream is
+    // a CPU consumer, so it keeps the sample on the old route.
+    if (this->observer_->UsesGpuTexture() &&
+        !this->observer_->IsServingImageStream() &&
+        this->observer_->UpdateGpuSample(sample)) {
+      return hr;
+    }
+
     ComPtr<IMFMediaBuffer> buffer;
     hr = sample->ConvertToContiguousBuffer(&buffer);
+
+    // Said once per session: whether the frame is still on the GPU decides
+    // whether a zero-copy texture is possible here at all, and a camera whose
+    // driver hands back system memory cannot be told apart from one that does
+    // without this line.
+    static bool surface_reported = false;
+    if (!surface_reported) {
+      surface_reported = true;
+      ComPtr<IMFMediaBuffer> first_buffer;
+      ComPtr<IMFDXGIBuffer> dxgi_buffer;
+      if (SUCCEEDED(sample->GetBufferByIndex(0, first_buffer.GetAddressOf())) &&
+          SUCCEEDED(first_buffer.As(&dxgi_buffer))) {
+        ComPtr<ID3D11Texture2D> texture;
+        HRESULT texture_hr =
+            dxgi_buffer->GetResource(IID_PPV_ARGS(texture.GetAddressOf()));
+        D3D11_TEXTURE2D_DESC description{};
+        if (SUCCEEDED(texture_hr) && texture) {
+          texture->GetDesc(&description);
+        }
+        std::cerr << "camera_windows: preview samples are DXGI-backed; texture "
+                  << (texture ? "ok" : "unavailable") << ", "
+                  << description.Width << "x" << description.Height
+                  << ", format " << static_cast<int>(description.Format)
+                  << std::endl;
+      } else {
+        std::cerr << "camera_windows: preview samples are system memory (no "
+                     "IMFDXGIBuffer)"
+                  << std::endl;
+      }
+    }
 
     // Draw the frame.
     if (SUCCEEDED(hr) && buffer) {

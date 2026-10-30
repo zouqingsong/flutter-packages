@@ -31,6 +31,15 @@ class CaptureEngineObserver {
   // Updates texture buffer
   virtual bool UpdateBuffer(uint8_t* data, uint32_t new_length) = 0;
 
+  // Whether preview frames are drawn from a GPU texture. When they are, the
+  // sample is handed over as it arrived instead of being downloaded first.
+  virtual bool UsesGpuTexture() const { return false; }
+
+  // Draws one sample through the GPU texture path. Returns false when the
+  // sample cannot be used that way, in which case the caller falls back to
+  // UpdateBuffer.
+  virtual bool UpdateGpuSample(IMFSample* sample) { return false; }
+
   // Handles capture timestamps updates.
   // Used to stop timed recordings when recorded time is exceeded.
   virtual void UpdateCaptureTime(uint64_t capture_time) = 0;

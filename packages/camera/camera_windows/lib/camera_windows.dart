@@ -10,7 +10,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_transform/stream_transform.dart';
 
+import 'src/developer_options.dart';
 import 'src/messages.g.dart';
+
+export 'src/developer_options.dart';
 
 /// An implementation of [CameraPlatform] for Windows.
 class CameraWindows extends CameraPlatform {

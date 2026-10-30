@@ -120,6 +120,42 @@ std::optional<std::string> GetFilePathForVideo() {
 }  // namespace
 
 // static
+namespace {
+
+// The switches a developer build may flip, on a channel of their own: they are
+// not part of the camera API, and none of them is reachable from a normal run of
+// the app.
+constexpr char kDeveloperChannel[] =
+    "plugins.flutter.io/camera_windows/developer";
+
+// Channel handlers are unregistered when the channel goes away, and the
+// registrar keeps nothing for us, so the one live channel is held here.
+std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+    developer_channel;
+
+void HandleDeveloperCall(
+    const flutter::MethodCall<flutter::EncodableValue>& call,
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  if (call.method_name() == "setGpuPreviewTexture") {
+    const bool* enabled = std::get_if<bool>(call.arguments());
+    if (enabled == nullptr) {
+      result->Error("bad-arguments", "setGpuPreviewTexture expects a bool");
+      return;
+    }
+    TextureHandler::SetGpuTextureEnabled(*enabled);
+    result->Success();
+    return;
+  }
+  if (call.method_name() == "gpuPreviewTexture") {
+    result->Success(
+        flutter::EncodableValue(TextureHandler::GpuTextureEnabled()));
+    return;
+  }
+  result->NotImplemented();
+}
+
+}  // namespace
+
 void CameraPlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows* registrar) {
   std::unique_ptr<CameraPlugin> plugin = std::make_unique<CameraPlugin>(
@@ -127,6 +163,12 @@ void CameraPlugin::RegisterWithRegistrar(
   plugin->RegisterPlatformThreadDispatcher(registrar);
 
   CameraApi::SetUp(registrar->messenger(), plugin.get());
+
+  developer_channel =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          registrar->messenger(), kDeveloperChannel,
+          &flutter::StandardMethodCodec::GetInstance());
+  developer_channel->SetMethodCallHandler(&HandleDeveloperCall);
 
   registrar->AddPlugin(std::move(plugin));
 }
