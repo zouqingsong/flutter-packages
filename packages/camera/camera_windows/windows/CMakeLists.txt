@@ -15,6 +15,8 @@ list(APPEND PLUGIN_SOURCES
   "camera.cpp"
   "capture_controller.h"
   "capture_controller.cpp"
+  "source_reader_capture.h"
+  "source_reader_capture.cpp"
   "capture_controller_listener.h"
   "capture_engine_listener.h"
   "capture_engine_listener.cpp"
@@ -50,7 +52,7 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)
-target_link_libraries(${PLUGIN_NAME} PRIVATE mf mfplat mfuuid d3d11 d3dcompiler)
+target_link_libraries(${PLUGIN_NAME} PRIVATE mf mfplat mfuuid mfreadwrite windowscodecs d3d11 d3dcompiler)
 
 # List of absolute paths to libraries that should be bundled with the plugin
 set(camera_windows_bundled_libraries
@@ -86,12 +88,13 @@ add_executable(${TEST_RUNNER}
   test/camera_plugin_test.cpp
   test/camera_test.cpp
   test/capture_controller_test.cpp
+  test/source_reader_capture_test.cpp
   ${PLUGIN_SOURCES}
 )
 apply_standard_settings(${TEST_RUNNER})
 target_include_directories(${TEST_RUNNER} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(${TEST_RUNNER} PRIVATE flutter_wrapper_plugin)
-target_link_libraries(${TEST_RUNNER} PRIVATE mf mfplat mfuuid d3d11 d3dcompiler)
+target_link_libraries(${TEST_RUNNER} PRIVATE mf mfplat mfuuid mfreadwrite windowscodecs d3d11 d3dcompiler)
 target_link_libraries(${TEST_RUNNER} PRIVATE gtest_main gmock)
 
 # flutter_wrapper_plugin has link dependencies on the Flutter DLL.

@@ -54,7 +54,9 @@ class PreviewHandler {
   //                  This is set as sample callback for preview sink.
   HRESULT StartPreview(IMFCaptureEngine* capture_engine,
                        IMFMediaType* base_media_type,
-                       CaptureEngineListener* sample_callback);
+                       CaptureEngineListener* sample_callback,
+                       DWORD source_stream_index =
+                           static_cast<DWORD>(MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW));
 
   // Stops existing recording.
   //
@@ -90,7 +92,8 @@ class PreviewHandler {
   // Initializes record sink for video file capture.
   HRESULT InitPreviewSink(IMFCaptureEngine* capture_engine,
                           IMFMediaType* base_media_type,
-                          CaptureEngineListener* sample_callback);
+                          CaptureEngineListener* sample_callback,
+                          DWORD source_stream_index);
 
   PreviewState preview_state_ = PreviewState::kNotStarted;
   ComPtr<IMFCapturePreviewSink> preview_sink_;

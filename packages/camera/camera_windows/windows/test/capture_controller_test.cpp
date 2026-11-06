@@ -29,6 +29,38 @@ using ::testing::_;
 using ::testing::Eq;
 using ::testing::Return;
 
+TEST(StreamResolution, CaptureOnlyUsesActualIndexForPreviewAndRecord) {
+  ComPtr<MockCaptureSource> source = new MockCaptureSource();
+  EXPECT_CALL(*source.Get(), GetDeviceStreamCount(_))
+      .WillOnce([](DWORD* count) { *count = 1; return S_OK; });
+  EXPECT_CALL(*source.Get(), GetDeviceStreamCategory(0, _))
+      .WillOnce([](DWORD, MF_CAPTURE_ENGINE_STREAM_CATEGORY* category) {
+        *category = MF_CAPTURE_ENGINE_STREAM_CATEGORY_VIDEO_CAPTURE;
+        return S_OK;
+      });
+  DWORD preview = 99, record = 99;
+  EXPECT_EQ(ResolveVideoStreams(source.Get(), &preview, &record), S_OK);
+  EXPECT_EQ(preview, 0u);
+  EXPECT_EQ(record, 0u);
+}
+
+TEST(StreamResolution, NoVideoStreamFailsWithoutInventingAnAlias) {
+  ComPtr<MockCaptureSource> source = new MockCaptureSource();
+  EXPECT_CALL(*source.Get(), GetDeviceStreamCount(_))
+      .WillOnce([](DWORD* count) { *count = 0; return S_OK; });
+  DWORD preview = 99, record = 99;
+  EXPECT_EQ(ResolveVideoStreams(source.Get(), &preview, &record),
+            MF_E_INVALIDSTREAMNUMBER);
+}
+
+TEST(StreamResolution, StreamEnumerationFailurePropagates) {
+  ComPtr<MockCaptureSource> source = new MockCaptureSource();
+  EXPECT_CALL(*source.Get(), GetDeviceStreamCount(_)).WillOnce(Return(E_ACCESSDENIED));
+  DWORD preview = 99, record = 99;
+  EXPECT_EQ(ResolveVideoStreams(source.Get(), &preview, &record),
+            E_ACCESSDENIED);
+}
+
 void MockInitCaptureController(
     CaptureControllerImpl* capture_controller,
     MockTextureRegistrar* texture_registrar, MockCaptureEngine* engine,
@@ -76,6 +108,14 @@ void MockAvailableMediaTypes(MockCaptureEngine* engine,
                              MockCaptureSource* capture_source,
                              uint32_t mock_preview_width,
                              uint32_t mock_preview_height) {
+  EXPECT_CALL(*capture_source, GetDeviceStreamCount(_))
+      .WillRepeatedly([](DWORD* count) { *count = 2; return S_OK; });
+  EXPECT_CALL(*capture_source, GetDeviceStreamCategory(_, _))
+      .WillRepeatedly([](DWORD index, MF_CAPTURE_ENGINE_STREAM_CATEGORY* category) {
+        *category = index == 0 ? MF_CAPTURE_ENGINE_STREAM_CATEGORY_VIDEO_PREVIEW
+                             : MF_CAPTURE_ENGINE_STREAM_CATEGORY_VIDEO_CAPTURE;
+        return S_OK;
+      });
   EXPECT_CALL(*engine, GetSource)
       .Times(1)
       .WillOnce(
@@ -88,8 +128,7 @@ void MockAvailableMediaTypes(MockCaptureEngine* engine,
   EXPECT_CALL(
       *capture_source,
       GetAvailableDeviceMediaType(
-          Eq((DWORD)
-                 MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW),
+          Eq((DWORD)0),
           _, _))
       .WillRepeatedly([mock_preview_width, mock_preview_height](
                           DWORD stream_index, DWORD media_type_index,
@@ -106,7 +145,7 @@ void MockAvailableMediaTypes(MockCaptureEngine* engine,
   EXPECT_CALL(
       *capture_source,
       GetAvailableDeviceMediaType(
-          Eq((DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_RECORD),
+          Eq((DWORD)1),
           _, _))
       .WillRepeatedly([mock_preview_width, mock_preview_height](
                           DWORD stream_index, DWORD media_type_index,
@@ -156,8 +195,7 @@ void MockStartPreview(CaptureControllerImpl* capture_controller,
   EXPECT_CALL(
       *capture_source.Get(),
       SetCurrentDeviceMediaType(
-          Eq((DWORD)
-                 MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW),
+          Eq((DWORD)0),
           _))
       .Times(1)
       .WillOnce(Return(S_OK));
@@ -608,7 +646,7 @@ TEST(CaptureController, ReportsStartPreviewError) {
 
 // TODO(loic-sharma): Test duplicate calls to start preview.
 
-TEST(CaptureController, IgnoresStartPreviewErrorEvent) {
+TEST(CaptureController, ReportsDecoderFailureFromStartPreviewEvent) {
   ComPtr<MockCaptureEngine> engine = new MockCaptureEngine();
   std::unique_ptr<MockCamera> camera =
       std::make_unique<MockCamera>(MOCK_DEVICE_ID);
@@ -623,11 +661,12 @@ TEST(CaptureController, IgnoresStartPreviewErrorEvent) {
   MockInitCaptureController(capture_controller.get(), texture_registrar.get(),
                             engine.Get(), camera.get(), mock_texture_id);
 
-  EXPECT_CALL(*camera, OnStartPreviewFailed).Times(0);
+  EXPECT_CALL(*camera, OnStartPreviewFailed(Eq(CameraResult::kError), _)).Times(1);
   EXPECT_CALL(*camera, OnCreateCaptureEngineSucceeded).Times(0);
 
   // Send a start preview error event
-  engine->CreateFakeEvent(E_FAIL, MF_CAPTURE_ENGINE_PREVIEW_STARTED);
+  engine->CreateFakeEvent(MF_E_TOPO_CODEC_NOT_FOUND,
+                          MF_CAPTURE_ENGINE_PREVIEW_STARTED);
 
   capture_controller = nullptr;
   camera = nullptr;

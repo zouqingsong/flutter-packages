@@ -5,6 +5,7 @@
 #include "preview_handler.h"
 
 #include <mfapi.h>
+#include <mferror.h>
 #include <mfcaptureengine.h>
 
 #include <cassert>
@@ -27,11 +28,24 @@ HRESULT BuildMediaTypeForVideoPreview(IMFMediaType* src_media_type,
     return hr;
   }
 
-  // Clones everything from original media type.
-  hr = src_media_type->CopyAllItems(new_media_type.Get());
+  // Decoder-specific attributes from H.264/MJPEG are not valid on RGB output.
+  hr = new_media_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
   if (FAILED(hr)) {
     return hr;
   }
+
+  for (const GUID& attribute :
+       {MF_MT_FRAME_SIZE, MF_MT_FRAME_RATE, MF_MT_PIXEL_ASPECT_RATIO}) {
+    UINT64 value = 0;
+    if (SUCCEEDED(src_media_type->GetUINT64(attribute, &value))) {
+      hr = new_media_type->SetUINT64(attribute, value);
+      if (FAILED(hr)) return hr;
+    }
+  }
+  UINT32 interlace = MFVideoInterlace_Progressive;
+  src_media_type->GetUINT32(MF_MT_INTERLACE_MODE, &interlace);
+  hr = new_media_type->SetUINT32(MF_MT_INTERLACE_MODE, interlace);
+  if (FAILED(hr)) return hr;
 
   // Changes subtype to MFVideoFormat_RGB32.
   hr = new_media_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
@@ -51,7 +65,7 @@ HRESULT BuildMediaTypeForVideoPreview(IMFMediaType* src_media_type,
 
 HRESULT PreviewHandler::InitPreviewSink(
     IMFCaptureEngine* capture_engine, IMFMediaType* base_media_type,
-    CaptureEngineListener* sample_callback) {
+    CaptureEngineListener* sample_callback, DWORD source_stream_index) {
   assert(capture_engine);
   assert(base_media_type);
   assert(sample_callback);
@@ -95,7 +109,7 @@ HRESULT PreviewHandler::InitPreviewSink(
 
   DWORD preview_sink_stream_index;
   hr = preview_sink_->AddStream(
-      (DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW,
+      source_stream_index,
       preview_media_type.Get(), nullptr, &preview_sink_stream_index);
 
   if (FAILED(hr)) {
@@ -115,12 +129,14 @@ HRESULT PreviewHandler::InitPreviewSink(
 
 HRESULT PreviewHandler::StartPreview(IMFCaptureEngine* capture_engine,
                                      IMFMediaType* base_media_type,
-                                     CaptureEngineListener* sample_callback) {
+                                     CaptureEngineListener* sample_callback,
+                                     DWORD source_stream_index) {
   assert(capture_engine);
   assert(base_media_type);
 
   HRESULT hr =
-      InitPreviewSink(capture_engine, base_media_type, sample_callback);
+      InitPreviewSink(capture_engine, base_media_type, sample_callback,
+                      source_stream_index);
 
   if (FAILED(hr)) {
     return hr;

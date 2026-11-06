@@ -11,6 +11,7 @@
 #include <cassert>
 #include <string>
 #include <iostream>
+#include <optional>
 #include <chrono>
 #include <algorithm>
 #include <utility>
@@ -263,6 +264,10 @@ HRESULT CaptureControllerImpl::CreateCaptureEngine() {
 }
 
 void CaptureControllerImpl::ResetCaptureController() {
+  if (source_reader_) {
+    source_reader_->Stop();
+    source_reader_.reset();
+  }
   if (record_handler_ && record_handler_->CanStop()) {
     StopRecord();
   }
@@ -338,6 +343,33 @@ bool CaptureControllerImpl::InitCaptureDevice(
     media_foundation_started_ = true;
   }
 
+  // This device exposes H.264 on a capture-only stream. Capture Engine's
+  // preview topology cannot resolve its decoder; Source Reader negotiates the
+  // advanced processing chain, while other cameras retain Capture Engine.
+  std::string normalized_id = device_id;
+  std::transform(normalized_id.begin(), normalized_id.end(),
+                 normalized_id.begin(), [](unsigned char c) {
+                   return static_cast<char>(std::tolower(c));
+                 });
+  if (normalized_id.find("vid_4255&pid_0134") != std::string::npos) {
+    HRESULT hr = CreateVideoCaptureSourceForDevice(device_id);
+    if (SUCCEEDED(hr)) {
+      source_reader_ = std::make_unique<SourceReaderCapture>();
+      texture_handler_ =
+          std::make_unique<TextureHandler>(texture_registrar_, nullptr);
+      const int64_t texture_id = texture_handler_->RegisterTexture();
+      if (texture_id >= 0) {
+        capture_engine_state_ = CaptureEngineState::kInitialized;
+        capture_controller_listener_->OnCreateCaptureEngineSucceeded(texture_id);
+        return true;
+      }
+      hr = E_FAIL;
+    }
+    capture_controller_listener_->OnCreateCaptureEngineFailed(
+        GetCameraResult(hr), "Failed to create source-reader camera");
+    ResetCaptureController();
+    return false;
+  }
   HRESULT hr = CreateCaptureEngine();
   if (FAILED(hr)) {
     capture_controller_listener_->OnCreateCaptureEngineFailed(
@@ -350,6 +382,16 @@ bool CaptureControllerImpl::InitCaptureDevice(
 }
 
 void CaptureControllerImpl::TakePicture(const std::string& file_path) {
+  if (source_reader_) {
+    const HRESULT hr = source_reader_->TakePicture(file_path);
+    if (SUCCEEDED(hr)) {
+      capture_controller_listener_->OnTakePictureSucceeded(file_path);
+    } else {
+      capture_controller_listener_->OnTakePictureFailed(
+          GetCameraResult(hr), "Source Reader photo encoding failed");
+    }
+    return;
+  }
   assert(capture_engine_callback_handler_);
   assert(capture_engine_);
 
@@ -427,8 +469,15 @@ bool FindBestMediaType(DWORD source_stream_index, IMFCaptureSource* source,
 
   // Loop native media types.
   for (int i = 0;; i++) {
-    if (FAILED(source->GetAvailableDeviceMediaType(
-            source_stream_index, i, media_type.GetAddressOf()))) {
+    const HRESULT enumeration_result = source->GetAvailableDeviceMediaType(
+        source_stream_index, i, media_type.ReleaseAndGetAddressOf());
+    if (FAILED(enumeration_result)) {
+      if (enumeration_result != MF_E_NO_MORE_TYPES) {
+        std::cerr << "camera_windows: media enumeration stream="
+                  << source_stream_index << " index=" << i << " HRESULT=0x"
+                  << std::hex << static_cast<uint32_t>(enumeration_result)
+                  << std::dec << std::endl;
+      }
       break;
     }
 
@@ -501,12 +550,43 @@ HRESULT CaptureControllerImpl::FindBaseMediaTypes() {
   return FindBaseMediaTypesForSource(source.Get());
 }
 
+HRESULT ResolveVideoStreams(IMFCaptureSource* source, DWORD* preview,
+                            DWORD* record) {
+  DWORD stream_count = 0;
+  HRESULT hr = source->GetDeviceStreamCount(&stream_count);
+  if (FAILED(hr)) return hr;
+  std::optional<DWORD> preview_stream;
+  std::optional<DWORD> capture_stream;
+  for (DWORD i = 0; i < stream_count; ++i) {
+    MF_CAPTURE_ENGINE_STREAM_CATEGORY category;
+    hr = source->GetDeviceStreamCategory(i, &category);
+    if (FAILED(hr)) return hr;
+    if (category == MF_CAPTURE_ENGINE_STREAM_CATEGORY_VIDEO_PREVIEW &&
+        !preview_stream) {
+      preview_stream = i;
+    } else if (category == MF_CAPTURE_ENGINE_STREAM_CATEGORY_VIDEO_CAPTURE &&
+               !capture_stream) {
+      capture_stream = i;
+    }
+  }
+  // FlexionCam exposes a single capture stream and rejects the friendly
+  // preview/record aliases. Carry the actual index through enumeration and sink.
+  if (!preview_stream && !capture_stream) return MF_E_INVALIDSTREAMNUMBER;
+  *preview = preview_stream ? *preview_stream : *capture_stream;
+  *record = capture_stream ? *capture_stream : *preview_stream;
+  return S_OK;
+}
+
 HRESULT CaptureControllerImpl::FindBaseMediaTypesForSource(
     IMFCaptureSource* source) {
+  DWORD record_source_stream_index = 0;
+  HRESULT hr = ResolveVideoStreams(source, &preview_source_stream_index_,
+                                    &record_source_stream_index);
+  if (FAILED(hr)) return hr;
   // A format the caller pinned wins over anything the presets would choose: it is
   // the only thing that can express a frame rate, or a size the presets lack.
   if (FindPreferredMediaType(
-          (DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW,
+          preview_source_stream_index_,
           source, base_preview_media_type_.ReleaseAndGetAddressOf())) {
     base_preview_media_type_.CopyTo(base_capture_media_type_.ReleaseAndGetAddressOf());
     base_preview_media_type_.CopyTo(base_record_media_type_.ReleaseAndGetAddressOf());
@@ -522,18 +602,21 @@ HRESULT CaptureControllerImpl::FindBaseMediaTypesForSource(
 
   // Find base media type for previewing.
   if (!FindBestMediaType(
-          (DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW,
+          preview_source_stream_index_,
           source, base_preview_media_type_.GetAddressOf(),
           GetMaxPreviewHeight(), &preview_frame_width_,
           &preview_frame_height_)) {
+    std::cerr << "camera_windows: no eligible preview media type" << std::endl;
     return E_FAIL;
   }
 
   // Find base media type for record and photo capture.
   if (!FindBestMediaType(
-          (DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_RECORD,
+          record_source_stream_index,
           source, base_capture_media_type_.GetAddressOf(), 0xffffffff, nullptr,
           nullptr)) {
+    std::cerr << "camera_windows: no eligible recording/photo media type"
+              << std::endl;
     return E_FAIL;
   }
 
@@ -543,7 +626,7 @@ HRESULT CaptureControllerImpl::FindBaseMediaTypesForSource(
   // duration to pay for, and the extra pixels are free where the camera has
   // them.
   if (FindBestMediaType(
-          (DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_RECORD,
+          record_source_stream_index,
           source, base_record_media_type_.GetAddressOf(),
           GetMaxPreviewHeight(), nullptr, nullptr)) {
     return S_OK;
@@ -556,6 +639,21 @@ HRESULT CaptureControllerImpl::FindBaseMediaTypesForSource(
 }
 
 void CaptureControllerImpl::StartRecord(const std::string& file_path) {
+  if (source_reader_) {
+    if (media_settings_.enable_audio()) {
+      return OnRecordStarted(CameraResult::kError,
+                              "Audio recording is not supported by this UVC source");
+    }
+    const HRESULT hr = source_reader_->StartRecord(file_path);
+    if (FAILED(hr)) {
+      capture_controller_listener_->OnStartRecordFailed(
+          GetCameraResult(hr), "Source Reader recording initialization failed");
+    } else {
+      reader_record_path_ = file_path;
+      capture_controller_listener_->OnStartRecordSucceeded();
+    }
+    return;
+  }
   assert(capture_engine_);
 
   if (!IsInitialized()) {
@@ -597,6 +695,17 @@ void CaptureControllerImpl::StartRecord(const std::string& file_path) {
 }
 
 void CaptureControllerImpl::StopRecord() {
+  if (source_reader_) {
+    const HRESULT hr = source_reader_->StopRecord();
+    if (SUCCEEDED(hr)) {
+      capture_controller_listener_->OnStopRecordSucceeded(reader_record_path_);
+      reader_record_path_.clear();
+    } else {
+      capture_controller_listener_->OnStopRecordFailed(
+          GetCameraResult(hr), "Source Reader recording finalization failed");
+    }
+    return;
+  }
   assert(capture_controller_listener_);
 
   if (!IsInitialized()) {
@@ -800,7 +909,7 @@ bool CaptureControllerImpl::FindPreferredMediaType(
   ComPtr<IMFMediaType> first_size_match;
   for (int i = 0;; i++) {
     if (FAILED(source->GetAvailableDeviceMediaType(
-            source_stream_index, i, media_type.GetAddressOf()))) {
+            source_stream_index, i, media_type.ReleaseAndGetAddressOf()))) {
       break;
     }
     UINT32 width = 0;
@@ -840,6 +949,42 @@ bool CaptureControllerImpl::FindPreferredMediaType(
 }
 
 void CaptureControllerImpl::StartPreview() {
+  if (source_reader_) {
+    HRESULT hr = source_reader_->Initialize(
+        video_source_.Get(), GetMaxPreviewHeight(), preferred_width_,
+        preferred_height_, preferred_frame_rate_);
+    if (FAILED(hr)) {
+      std::cerr << "camera_windows: SourceReader negotiation HRESULT=0x"
+                << std::hex << static_cast<uint32_t>(hr) << std::dec << std::endl;
+      return OnPreviewStarted(GetCameraResult(hr),
+                              "Source Reader decoder negotiation failed");
+    }
+    preview_frame_width_ = source_reader_->width();
+    preview_frame_height_ = source_reader_->height();
+    texture_handler_->UpdateTextureSize(preview_frame_width_,
+                                        preview_frame_height_);
+    reader_starting_ = true;
+    reader_paused_ = false;
+    source_reader_->Start(
+        [this](uint8_t* data, uint32_t length) {
+          ++samples_seen_;
+          if (!reader_paused_) UpdateBuffer(data, length);
+          if (reader_starting_.exchange(false)) {
+            capture_controller_listener_->OnStartPreviewSucceeded(
+                preview_frame_width_, preview_frame_height_);
+          }
+        },
+        [this](HRESULT error) {
+          if (reader_starting_.exchange(false)) {
+            capture_controller_listener_->OnStartPreviewFailed(
+                GetCameraResult(error), "Source Reader failed before first frame");
+          } else {
+            capture_controller_listener_->OnCaptureError(
+                GetCameraResult(error), "Source Reader capture failed");
+          }
+        });
+    return;
+  }
   assert(capture_engine_callback_handler_);
   assert(capture_engine_);
   assert(texture_handler_);
@@ -869,7 +1014,7 @@ void CaptureControllerImpl::StartPreview() {
   }
 
   hr = source->SetCurrentDeviceMediaType(
-      (DWORD)MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW,
+      preview_source_stream_index_,
       base_preview_media_type_.Get());
   if (FAILED(hr)) {
     return OnPreviewStarted(GetCameraResult(hr),
@@ -893,7 +1038,8 @@ void CaptureControllerImpl::StartPreview() {
   // process.
   hr = preview_handler_->StartPreview(capture_engine_.Get(),
                                       base_preview_media_type_.Get(),
-                                      capture_engine_callback_handler_.Get());
+                                      capture_engine_callback_handler_.Get(),
+                                      preview_source_stream_index_);
 
   if (FAILED(hr)) {
     // Destroy preview handler on error cases to make sure state is resetted.
@@ -909,6 +1055,10 @@ void CaptureControllerImpl::StartPreview() {
 // Check MF_CAPTURE_ENGINE_PREVIEW_STOPPED event handling for response
 // process.
 HRESULT CaptureControllerImpl::StopPreview() {
+  if (source_reader_) {
+    source_reader_->Stop();
+    return S_OK;
+  }
   assert(capture_engine_);
 
   if (!IsInitialized() || !preview_handler_) {
@@ -923,6 +1073,10 @@ HRESULT CaptureControllerImpl::StopPreview() {
 // When preview is paused, captured frames are not processed for preview
 // and flutter texture is not updated
 void CaptureControllerImpl::PausePreview() {
+  if (source_reader_) {
+    reader_paused_ = true;
+    return capture_controller_listener_->OnPausePreviewSucceeded();
+  }
   assert(capture_controller_listener_);
 
   if (!preview_handler_ || !preview_handler_->IsInitialized()) {
@@ -942,6 +1096,10 @@ void CaptureControllerImpl::PausePreview() {
 // When preview is not paused, captured frames are processed for preview
 // and flutter texture is updated.
 void CaptureControllerImpl::ResumePreview() {
+  if (source_reader_) {
+    reader_paused_ = false;
+    return capture_controller_listener_->OnResumePreviewSucceeded();
+  }
   assert(capture_controller_listener_);
 
   if (!preview_handler_ || !preview_handler_->IsInitialized()) {
@@ -987,6 +1145,9 @@ void CaptureControllerImpl::OnEvent(IMFMediaEvent* event) {
     } else if (extended_type_guid == MF_CAPTURE_ENGINE_INITIALIZED) {
       OnCaptureEngineInitialized(event_result, error);
     } else if (extended_type_guid == MF_CAPTURE_ENGINE_PREVIEW_STARTED) {
+      if (FAILED(event_hr)) {
+        OnPreviewStarted(event_result, error);
+      }
       // Preview is marked as started after first frame is captured.
       // This is because, CaptureEngine might inform that preview is started
       // even if error is thrown right after.

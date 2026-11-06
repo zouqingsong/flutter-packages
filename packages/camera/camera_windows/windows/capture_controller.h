@@ -27,6 +27,7 @@
 #include "preview_handler.h"
 #include "record_handler.h"
 #include "texture_handler.h"
+#include "source_reader_capture.h"
 
 namespace camera_windows {
 using flutter::TextureRegistrar;
@@ -38,6 +39,9 @@ using Microsoft::WRL::ComPtr;
 // On initialization, the capture controller transitions to the |kInitializing|
 // and then |kInitialized| state.
 enum class CaptureEngineState { kNotInitialized, kInitializing, kInitialized };
+
+HRESULT ResolveVideoStreams(IMFCaptureSource* source, DWORD* preview,
+                            DWORD* record);
 
 // Interface for a class that enumerates video capture device sources.
 class VideoCaptureDeviceEnumerator {
@@ -278,12 +282,18 @@ class CaptureControllerImpl : public CaptureController,
   std::atomic<int> last_sample_length_{0};
 
   uint32_t preview_frame_width_ = 0;
+  DWORD preview_source_stream_index_ =
+      static_cast<DWORD>(MF_CAPTURE_ENGINE_PREFERRED_SOURCE_STREAM_FOR_VIDEO_PREVIEW);
   uint32_t preview_frame_height_ = 0;
   UINT dx_device_reset_token_ = 0;
   std::unique_ptr<RecordHandler> record_handler_;
   std::unique_ptr<PreviewHandler> preview_handler_;
   std::unique_ptr<PhotoHandler> photo_handler_;
   std::unique_ptr<TextureHandler> texture_handler_;
+  std::unique_ptr<SourceReaderCapture> source_reader_;
+  std::atomic<bool> reader_starting_{false};
+  std::atomic<bool> reader_paused_{false};
+  std::string reader_record_path_;
   CaptureControllerListener* capture_controller_listener_;
 
   std::string video_device_id_;

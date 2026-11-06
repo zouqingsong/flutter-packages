@@ -15,6 +15,28 @@ on [`camera`][camera] you'll need to
 [add `camera_windows` to your pubspec.yaml explicitly][install].
 Once you do, you can use the [`camera`][camera] APIs as you normally would.
 
+### FlexionCam capture-only UVC devices
+
+This local fork uses an asynchronous Media Foundation Source Reader for
+`VID_4255&PID_0134`. Its capture-only compressed stream can fail Capture Engine
+decoder negotiation on some Windows hosts; Source Reader negotiates RGB32
+through advanced video processing instead. Other cameras retain Capture Engine.
+There is no global frame-rate cap, codec exclusion, or hardware-transform override.
+
+The route supports preview, image streaming, JPEG and H.264 MP4 capture, and
+preview pause/resume. Audio recording is explicitly unsupported on this route;
+applications should create its controller with `enableAudio: false`.
+If the installed H.264 encoder rejects a sensor size larger than 4096×2304,
+recording retries an aspect-preserving size within those encoder bounds.
+For example, 4000×3000 preview/JPEG remain full size while MP4 is 3072×2304.
+
+Native tests include actual stream-index resolution and asynchronous preview
+failure propagation. The `SourceReaderCapture` hardware test is skipped unless
+`CAMERA_HARDWARE_SMOKE_DIR` names an output directory. With explicit opt-in it
+opens FlexionCam twice, verifies decoded frames at the smallest/fallback and
+maximum presets, writes JPEG/MP4 samples, and checks bounded source shutdown.
+It sends no vendor USB control commands.
+
 ## Missing features on the Windows platform
 
 ### Device orientation

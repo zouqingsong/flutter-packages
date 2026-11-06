@@ -285,6 +285,8 @@ TEST(CameraPlugin, CreateHandlerAllowsRetry) {
 }
 
 TEST(CameraPlugin, InitializeHandlerCallStartPreview) {
+  auto texture_registrar = std::make_unique<MockTextureRegistrar>();
+  auto messenger = std::make_unique<MockBinaryMessenger>();
   int64_t mock_camera_id = 1234;
 
   std::unique_ptr<MockCamera> camera =
@@ -331,8 +333,8 @@ TEST(CameraPlugin, InitializeHandlerCallStartPreview) {
   camera->camera_id_ = mock_camera_id;
   camera->capture_controller_ = std::move(capture_controller);
 
-  MockCameraPlugin plugin(std::make_unique<MockTextureRegistrar>().get(),
-                          std::make_unique<MockBinaryMessenger>().get(),
+  MockCameraPlugin plugin(texture_registrar.get(),
+                          messenger.get(),
                           std::make_unique<MockCameraFactory>());
 
   // Add mocked camera to plugins camera list.
@@ -352,6 +354,8 @@ TEST(CameraPlugin, InitializeHandlerCallStartPreview) {
 }
 
 TEST(CameraPlugin, InitializeHandlerErrorOnInvalidCameraId) {
+  auto texture_registrar = std::make_unique<MockTextureRegistrar>();
+  auto messenger = std::make_unique<MockBinaryMessenger>();
   int64_t mock_camera_id = 1234;
   int64_t missing_camera_id = 5678;
 
@@ -374,8 +378,8 @@ TEST(CameraPlugin, InitializeHandlerErrorOnInvalidCameraId) {
 
   camera->camera_id_ = mock_camera_id;
 
-  MockCameraPlugin plugin(std::make_unique<MockTextureRegistrar>().get(),
-                          std::make_unique<MockBinaryMessenger>().get(),
+  MockCameraPlugin plugin(texture_registrar.get(),
+                          messenger.get(),
                           std::make_unique<MockCameraFactory>());
 
   // Add mocked camera to plugins camera list.
@@ -395,6 +399,8 @@ TEST(CameraPlugin, InitializeHandlerErrorOnInvalidCameraId) {
 }
 
 TEST(CameraPlugin, TakePictureHandlerCallsTakePictureWithPath) {
+  auto texture_registrar = std::make_unique<MockTextureRegistrar>();
+  auto messenger = std::make_unique<MockBinaryMessenger>();
   int64_t mock_camera_id = 1234;
 
   std::unique_ptr<MockCamera> camera =
@@ -441,8 +447,8 @@ TEST(CameraPlugin, TakePictureHandlerCallsTakePictureWithPath) {
   camera->camera_id_ = mock_camera_id;
   camera->capture_controller_ = std::move(capture_controller);
 
-  MockCameraPlugin plugin(std::make_unique<MockTextureRegistrar>().get(),
-                          std::make_unique<MockBinaryMessenger>().get(),
+  MockCameraPlugin plugin(texture_registrar.get(),
+                          messenger.get(),
                           std::make_unique<MockCameraFactory>());
 
   // Add mocked camera to plugins camera list.
