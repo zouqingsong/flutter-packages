@@ -10,6 +10,7 @@
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
 
+#include <atomic>
 #include <functional>
 #include <mutex>
 #include <vector>
@@ -82,6 +83,8 @@ class CameraPlugin : public flutter::Plugin,
       int64_t camera_id,
       std::function<void(ErrorOr<std::string> reply)> result) override;
   std::optional<FlutterError> Dispose(int64_t camera_id) override;
+  // Called while the Flutter messenger and texture registrar are still live.
+  void Shutdown();
 
  private:
   // Loops through cameras and returns camera
@@ -136,6 +139,7 @@ class CameraPlugin : public flutter::Plugin,
   HWND TopLevelWindow() const;
   std::mutex platform_tasks_mutex_;
   std::vector<std::function<void()>> platform_tasks_;
+  std::atomic<bool> shutting_down_{false};
 
   friend class camera_windows::test::MockCameraPlugin;
 };

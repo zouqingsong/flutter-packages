@@ -207,7 +207,7 @@ CameraPlugin::~CameraPlugin() {
   // Order matters: the handler must be gone before the tasks that would use it
   // can run, and the delegate must be gone before the window can dispatch to
   // them.
-  image_stream_handler_ = nullptr;
+  Shutdown();
   if (registrar_ != nullptr && window_proc_delegate_id_ >= 0) {
     registrar_->UnregisterTopLevelWindowProcDelegate(
         window_proc_delegate_id_);
@@ -217,6 +217,16 @@ CameraPlugin::~CameraPlugin() {
     const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
     platform_tasks_.clear();
   }
+}
+
+void CameraPlugin::Shutdown() {
+  if (shutting_down_.exchange(true)) return;
+  // Unregister channels before engine destruction: its messenger teardown can
+  // hold the same callback lock required by SetMessageHandler(nullptr).
+  cameras_.clear();
+  image_stream_handler_.reset();
+  const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
+  platform_tasks_.clear();
 }
 
 void CameraPlugin::RegisterPlatformThreadDispatcher(
@@ -234,6 +244,10 @@ void CameraPlugin::RegisterPlatformThreadDispatcher(
   window_proc_delegate_id_ = registrar->RegisterTopLevelWindowProcDelegate(
       [this](HWND hwnd, UINT message, WPARAM wparam,
              LPARAM lparam) -> std::optional<LRESULT> {
+        if (message == WM_DESTROY && hwnd == TopLevelWindow()) {
+          Shutdown();
+          return std::nullopt;
+        }
         if (message != kPlatformTaskMessage) {
           return std::nullopt;
         }
@@ -267,6 +281,7 @@ HWND CameraPlugin::TopLevelWindow() const {
 }
 
 bool CameraPlugin::PostToPlatformThread(std::function<void()> task) {
+  if (shutting_down_) return false;
   HWND window = TopLevelWindow();
   if (window == nullptr) {
     // No window to post to, which only happens in tests: run the task where it
@@ -276,6 +291,7 @@ bool CameraPlugin::PostToPlatformThread(std::function<void()> task) {
   }
   {
     const std::lock_guard<std::mutex> lock(platform_tasks_mutex_);
+    if (shutting_down_) return false;
     platform_tasks_.push_back(std::move(task));
   }
   if (!::PostMessage(window, kPlatformTaskMessage, 0, 0)) {

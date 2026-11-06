@@ -30,6 +30,28 @@ using ::testing::Eq;
 using ::testing::Pointee;
 using ::testing::Return;
 
+TEST(CameraPlugin, ShutdownReleasesCamerasAndUnregistersChannelExactlyOnce) {
+  MockTextureRegistrar registrar;
+  MockBinaryMessenger messenger;
+  EXPECT_CALL(messenger, SetMessageHandler(_, _)).Times(2);
+  bool destroyed = false;
+  class ClosingCamera final : public MockCamera {
+   public:
+    explicit ClosingCamera(bool& destroyed)
+        : MockCamera(MOCK_DEVICE_ID), destroyed_(destroyed) {}
+    ~ClosingCamera() override { destroyed_ = true; }
+   private:
+    bool& destroyed_;
+  };
+  {
+    MockCameraPlugin plugin(&registrar, &messenger);
+    plugin.AddCamera(std::make_unique<ClosingCamera>(destroyed));
+    plugin.Shutdown();
+    EXPECT_TRUE(destroyed);
+    plugin.Shutdown();
+  }
+}
+
 void MockInitCamera(MockCamera* camera, bool success) {
   EXPECT_CALL(*camera,
               HasPendingResultByType(Eq(PendingResultType::kCreateCamera)))

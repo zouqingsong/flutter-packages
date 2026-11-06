@@ -37,6 +37,11 @@ opens FlexionCam twice, verifies decoded frames at the smallest/fallback and
 maximum presets, writes JPEG/MP4 samples, and checks bounded source shutdown.
 It sends no vendor USB control commands.
 
+On Windows window destruction, the plugin stops camera sources and unregisters
+its image-stream channel before the Flutter engine starts messenger teardown.
+This avoids reentering the messenger callback lock from a plugin destructor.
+Shutdown is idempotent and rejects new platform-thread work once closing starts.
+
 ## Missing features on the Windows platform
 
 ### Device orientation
